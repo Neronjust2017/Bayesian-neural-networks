@@ -8,12 +8,12 @@ import copy
 
 def sample_weights(W_mu, b_mu, W_p, b_p):
     """Quick method for sampling weights and exporting weights"""
-    eps_W = W_mu.data.new(W_mu.size()).normal_()
+    eps_W = W_mu.data.new(W_mu.size()).normal_()  # 得到ε (ε~N(0, I))
     # sample parameters
-    std_w = 1e-6 + F.softplus(W_p, beta=1, threshold=20)
-    W = W_mu + 1 * std_w * eps_W
+    std_w = 1e-6 + F.softplus(W_p, beta=1, threshold=20)  # 使用softplus函数得到standard deviation
+    W = W_mu + 1 * std_w * eps_W                          # µ + log(1 + exp(ρ)) ◦ ε
 
-    if b_mu is not None:
+    if b_mu is not None:                                        # sampling bias
         std_b = 1e-6 + F.softplus(b_p, beta=1, threshold=20)
         eps_b = b_mu.data.new(b_mu.size()).normal_()
         b = b_mu + 1 * std_b * eps_b
@@ -30,12 +30,14 @@ class BayesLinear_Normalq(nn.Module):
     """
     def __init__(self, n_in, n_out, prior_class):
         super(BayesLinear_Normalq, self).__init__()
-        self.n_in = n_in
-        self.n_out = n_out
-        self.prior = prior_class
+        self.n_in = n_in                            # 输入数
+        self.n_out = n_out                          # 输出数
+        self.prior = prior_class                    # prior_instance：比如高斯、拉普拉斯等
 
         # Learnable parameters -> Initialisation is set empirically.
-        self.W_mu = nn.Parameter(torch.Tensor(self.n_in, self.n_out).uniform_(-0.1, 0.1))
+        # 初始化该线性层连接权值W及b的 mean µ 和 standard deviation σ ( σ = log(1 + exp(ρ)) )
+        self.W_mu = nn.Parameter(torch.Tensor(self.n_in, self.n_out).uniform_(-0.1, 0.1))  # Parameter：类型转换函数，将一个不可训练的
+                                                                                           # 类型Tensor转换成可以训练的类型parameter
         self.W_p = nn.Parameter(torch.Tensor(self.n_in, self.n_out).uniform_(-3, -2))
 
         self.b_mu = nn.Parameter(torch.Tensor(self.n_out).uniform_(-0.1, 0.1))
@@ -55,14 +57,14 @@ class BayesLinear_Normalq(nn.Module):
 
             # Tensor.new()  Constructs a new tensor of the same data type as self tensor.
             # the same random sample is used for every element in the minibatch
-            eps_W = Variable(self.W_mu.data.new(self.W_mu.size()).normal_())
-            eps_b = Variable(self.b_mu.data.new(self.b_mu.size()).normal_())
+            eps_W = Variable(self.W_mu.data.new(self.W_mu.size()).normal_())            # ε for W
+            eps_b = Variable(self.b_mu.data.new(self.b_mu.size()).normal_())            # ε for b
 
             # sample parameters
-            std_w = 1e-6 + F.softplus(self.W_p, beta=1, threshold=20)
-            std_b = 1e-6 + F.softplus(self.b_p, beta=1, threshold=20)
+            std_w = 1e-6 + F.softplus(self.W_p, beta=1, threshold=20)                   # standard deviation σ for W
+            std_b = 1e-6 + F.softplus(self.b_p, beta=1, threshold=20)                   # standard deviation σ for b
 
-            W = self.W_mu + 1 * std_w * eps_W
+            W = self.W_mu + 1 * std_w * eps_W                                           #  µ + log(1 + exp(ρ)) ◦ ε
             b = self.b_mu + 1 * std_b * eps_b
 
             output = torch.mm(X, W) + b.unsqueeze(0).expand(X.shape[0], -1)  # (batch_size, n_output)
@@ -81,12 +83,12 @@ class bayes_linear_2L(nn.Module):
         # prior_instance = isotropic_gauss_prior(mu=0, sigma=0.1)
         # prior_instance = spike_slab_2GMM(mu1=0, mu2=0, sigma1=0.135, sigma2=0.001, pi=0.5)
         # prior_instance = isotropic_gauss_prior(mu=0, sigma=0.1)
-        self.prior_instance = prior_instance
+        self.prior_instance = prior_instance                # 先验
 
-        self.input_dim = input_dim
-        self.output_dim = output_dim
+        self.input_dim = input_dim                          # 输入维度
+        self.output_dim = output_dim                        # 输出维度
 
-        self.bfc1 = BayesLinear_Normalq(input_dim, n_hid, self.prior_instance)
+        self.bfc1 = BayesLinear_Normalq(input_dim, n_hid, self.prior_instance)     # 初始化 2 hidden layers
         self.bfc2 = BayesLinear_Normalq(n_hid, n_hid, self.prior_instance)
         self.bfc3 = BayesLinear_Normalq(n_hid, output_dim, self.prior_instance)
 
@@ -129,10 +131,10 @@ class bayes_linear_2L(nn.Module):
         tlpw_vec = np.zeros(Nsamples)
 
         for i in range(Nsamples):
-            y, tlqw, tlpw = self.forward(x, sample=True)
-            predictions[i] = y
-            tlqw_vec[i] = tlqw
-            tlpw_vec[i] = tlpw
+            y, tlqw, tlpw = self.forward(x, sample=True)      # 前向传播一次
+            predictions[i] = y                                # y 是输出
+            tlqw_vec[i] = tlqw                                # tlqw
+            tlpw_vec[i] = tlpw                                # tlpw
 
         return predictions, tlqw_vec, tlpw_vec
 
@@ -165,6 +167,7 @@ class BBP_Bayes_Net(BaseNet):
         if self.cuda:
             torch.cuda.manual_seed(42)
 
+        # 构建贝叶斯网络
         self.model = bayes_linear_2L(input_dim=self.channels_in * self.side_in,
                                      output_dim=self.classes, n_hid=self.nhid, prior_instance=self.prior_instance)
         if self.cuda:
@@ -188,8 +191,8 @@ class BBP_Bayes_Net(BaseNet):
 
         if samples == 1:
             out, tlqw, tlpw = self.model(x)
-            mlpdw = F.cross_entropy(out, y, reduction='sum')
-            Edkl = (tlqw - tlpw) / self.Nbatches
+            mlpdw = F.cross_entropy(out, y, reduction='sum')    # 输出和真实标签之间的cross_entropy
+            Edkl = (tlqw - tlpw) / self.Nbatches                # logq(w|θ) − logP(w)P(D|w)
 
         elif samples > 1:
             mlpdw_cum = 0
@@ -205,8 +208,8 @@ class BBP_Bayes_Net(BaseNet):
             mlpdw = mlpdw_cum / samples
             Edkl = Edkl_cum / samples
 
-        loss = Edkl + mlpdw
-        loss.backward()
+        loss = Edkl + mlpdw                # loss分为两部分：1. f(w,θ) = logq(w|θ) − logP(w)P(D|w) 2.输出和真实标签之间的cross_entropy
+        loss.backward()                    # 误差反向传播
         self.optimizer.step()
 
         # out: (batch_size, out_channels, out_caps_dims)

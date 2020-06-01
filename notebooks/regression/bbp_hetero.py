@@ -253,7 +253,7 @@ y_mean = y[75:325].mean()
 y_std = y[75:325].var() ** 0.5
 y_train = (y[75:325] - y_mean) / y_std
 
-num_epochs, batch_size, nb_train = 2000, len(x_train), len(x_train)
+num_epochs, batch_size, nb_train = 200, len(x_train), len(x_train)
 
 net = BBP_Heteroscedastic_Model_Wrapper(network=BBP_Heteroscedastic_Model(input_dim=1, output_dim=1, num_units=200),
                                         learn_rate=1e-2, batch_size=batch_size, no_batches=1)
@@ -341,105 +341,105 @@ plt.show()
 
 # %%
 
-# class BBP_Heteroscedastic_Model_UCI(nn.Module):
-#     def __init__(self, input_dim, output_dim, num_units):
-#         super(BBP_Heteroscedastic_Model_UCI, self).__init__()
+class BBP_Heteroscedastic_Model_UCI(nn.Module):
+    def __init__(self, input_dim, output_dim, num_units):
+        super(BBP_Heteroscedastic_Model_UCI, self).__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        # network with two hidden and one output layer
+        self.layer1 = BayesLinear_Normalq(input_dim, num_units, gaussian(0, 1))
+        self.layer2 = BayesLinear_Normalq(num_units, num_units, gaussian(0, 1))
+        self.layer3 = BayesLinear_Normalq(num_units, 2 * output_dim, gaussian(0, 1))
+
+        # activation to be used between hidden layers
+        self.activation = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        KL_loss_total = 0
+        x = x.view(-1, self.input_dim)
+
+        x, KL_loss = self.layer1(x)
+        KL_loss_total = KL_loss_total + KL_loss
+        x = self.activation(x)
+
+        x, KL_loss = self.layer2(x)
+        KL_loss_total = KL_loss_total + KL_loss
+
+        return x, KL_loss_total
 #
-#         self.input_dim = input_dim
-#         self.output_dim = output_dim
 #
-#         # network with two hidden and one output layer
-#         self.layer1 = BayesLinear_Normalq(input_dim, num_units, gaussian(0, 1))
-#         self.layer2 = BayesLinear_Normalq(num_units, num_units, gaussian(0, 1))
-#         self.layer3 = BayesLinear_Normalq(num_units, 2 * output_dim, gaussian(0, 1))
-#
-#         # activation to be used between hidden layers
-#         self.activation = nn.ReLU(inplace=True)
-#
-#     def forward(self, x):
-#         KL_loss_total = 0
-#         x = x.view(-1, self.input_dim)
-#
-#         x, KL_loss = self.layer1(x)
-#         KL_loss_total = KL_loss_total + KL_loss
-#         x = self.activation(x)
-#
-#         x, KL_loss = self.layer2(x)
-#         KL_loss_total = KL_loss_total + KL_loss
-#
-#         return x, KL_loss_total
-#
-#
-# def train_BBP(data, n_splits, num_epochs, num_units, learn_rate, log_every):
-#     kf = KFold(n_splits=n_splits)
-#     in_dim = data.shape[1] - 1
-#     train_logliks, test_logliks = [], []
-#     train_rmses, test_rmses = [], []
-#
-#     for i, idx in enumerate(kf.split(data)):
-#         print('FOLD %d:' % i)
-#
-#         train_index, test_index = idx
-#
-#         x_train, y_train = data[train_index, :in_dim], data[train_index, in_dim:]
-#         x_test, y_test = data[test_index, :in_dim], data[test_index, in_dim:]
-#
-#         x_means, x_stds = x_train.mean(axis=0), x_train.var(axis=0) ** 0.5
-#         y_means, y_stds = y_train.mean(axis=0), y_train.var(axis=0) ** 0.5
-#
-#         x_train = (x_train - x_means) / x_stds
-#         y_train = (y_train - y_means) / y_stds
-#
-#         x_test = (x_test - x_means) / x_stds
-#         y_test = (y_test - y_means) / y_stds
-#
-#         batch_size, nb_train = len(x_train), len(x_train)
-#
-#         net = BBP_Heteroscedastic_Model_Wrapper(
-#             network=BBP_Heteroscedastic_Model_UCI(input_dim=x_test.shape[-1], output_dim=1, num_units=num_units),
-#             learn_rate=1e-2, batch_size=batch_size, no_batches=1)
-#
-#         fit_loss_train = np.zeros(num_epochs)
-#         KL_loss_train = np.zeros(num_epochs)
-#         total_loss = np.zeros(num_epochs)
-#
-#         best_net, best_loss = None, float('inf')
-#
-#         for i in range(num_epochs):
-#
-#             fit_loss, KL_loss = net.fit(x_train, y_train, no_samples=20)
-#             fit_loss_train[i] += fit_loss.cpu().data.numpy()
-#             KL_loss_train[i] += KL_loss.cpu().data.numpy()
-#
-#             total_loss[i] = fit_loss_train[i] + KL_loss_train[i]
-#
-#             if fit_loss < best_loss:
-#                 best_loss = fit_loss
-#                 best_net = copy.deepcopy(net.network)
-#
-#             if i % log_every == 0 or i == num_epochs - 1:
-#                 train_losses, train_rmse = net.get_loss_and_rmse(x_train, y_train, 20)
-#                 test_losses, test_rmse = net.get_loss_and_rmse(x_test, y_test, 20)
-#
-#                 print('Epoch: %s/%d, Train loglik = %.3f, Test loglik = %.3f, Train RMSE = %.3f, Test RMSE = %.3f' % \
-#                       (str(i + 1).zfill(3), num_epochs, -train_losses.mean() - np.log(y_stds)[0],
-#                        -test_losses.mean() - np.log(y_stds)[0], y_stds * train_rmse, y_stds * test_rmse))
-#
-#         train_losses, train_rmse = net.get_loss_and_rmse(x_train, y_train, 20)
-#         test_losses, test_rmse = net.get_loss_and_rmse(x_test, y_test, 20)
-#
-#         train_logliks.append((train_losses.cpu().data.numpy().mean() + np.log(y_stds)[0]))
-#         test_logliks.append((test_losses.cpu().data.numpy().mean() + np.log(y_stds)[0]))
-#
-#         train_rmses.append(y_stds * train_rmse)
-#         test_rmses.append(y_stds * test_rmse)
-#
-#     print('Train log. lik. = %6.3f +/- %6.3f' % (-np.array(train_logliks).mean(), np.array(train_logliks).var() ** 0.5))
-#     print('Test  log. lik. = %6.3f +/- %6.3f' % (-np.array(test_logliks).mean(), np.array(test_logliks).var() ** 0.5))
-#     print('Train RMSE      = %6.3f +/- %6.3f' % (np.array(train_rmses).mean(), np.array(train_rmses).var() ** 0.5))
-#     print('Test  RMSE      = %6.3f +/- %6.3f' % (np.array(test_rmses).mean(), np.array(test_rmses).var() ** 0.5))
-#
-#     return best_net
+def train_BBP(data, n_splits, num_epochs, num_units, learn_rate, log_every):
+    kf = KFold(n_splits=n_splits)
+    in_dim = data.shape[1] - 1
+    train_logliks, test_logliks = [], []
+    train_rmses, test_rmses = [], []
+
+    for i, idx in enumerate(kf.split(data)):
+        print('FOLD %d:' % i)
+
+        train_index, test_index = idx
+
+        x_train, y_train = data[train_index, :in_dim], data[train_index, in_dim:]
+        x_test, y_test = data[test_index, :in_dim], data[test_index, in_dim:]
+
+        x_means, x_stds = x_train.mean(axis=0), x_train.var(axis=0) ** 0.5
+        y_means, y_stds = y_train.mean(axis=0), y_train.var(axis=0) ** 0.5
+
+        x_train = (x_train - x_means) / x_stds
+        y_train = (y_train - y_means) / y_stds
+
+        x_test = (x_test - x_means) / x_stds
+        y_test = (y_test - y_means) / y_stds
+
+        batch_size, nb_train = len(x_train), len(x_train)
+
+        net = BBP_Heteroscedastic_Model_Wrapper(
+            network=BBP_Heteroscedastic_Model_UCI(input_dim=x_test.shape[-1], output_dim=1, num_units=num_units),
+            learn_rate=1e-2, batch_size=batch_size, no_batches=1)
+
+        fit_loss_train = np.zeros(num_epochs)
+        KL_loss_train = np.zeros(num_epochs)
+        total_loss = np.zeros(num_epochs)
+
+        best_net, best_loss = None, float('inf')
+
+        for i in range(num_epochs):
+
+            fit_loss, KL_loss = net.fit(x_train, y_train, no_samples=20)
+            fit_loss_train[i] += fit_loss.cpu().data.numpy()
+            KL_loss_train[i] += KL_loss.cpu().data.numpy()
+
+            total_loss[i] = fit_loss_train[i] + KL_loss_train[i]
+
+            if fit_loss < best_loss:
+                best_loss = fit_loss
+                best_net = copy.deepcopy(net.network)
+
+            if i % log_every == 0 or i == num_epochs - 1:
+                train_losses, train_rmse = net.get_loss_and_rmse(x_train, y_train, 20)
+                test_losses, test_rmse = net.get_loss_and_rmse(x_test, y_test, 20)
+
+                print('Epoch: %s/%d, Train loglik = %.3f, Test loglik = %.3f, Train RMSE = %.3f, Test RMSE = %.3f' % \
+                      (str(i + 1).zfill(3), num_epochs, -train_losses.mean() - np.log(y_stds)[0],
+                       -test_losses.mean() - np.log(y_stds)[0], y_stds * train_rmse, y_stds * test_rmse))
+
+        train_losses, train_rmse = net.get_loss_and_rmse(x_train, y_train, 20)
+        test_losses, test_rmse = net.get_loss_and_rmse(x_test, y_test, 20)
+
+        train_logliks.append((train_losses.cpu().data.numpy().mean() + np.log(y_stds)[0]))
+        test_logliks.append((test_losses.cpu().data.numpy().mean() + np.log(y_stds)[0]))
+
+        train_rmses.append(y_stds * train_rmse)
+        test_rmses.append(y_stds * test_rmse)
+
+    print('Train log. lik. = %6.3f +/- %6.3f' % (-np.array(train_logliks).mean(), np.array(train_logliks).var() ** 0.5))
+    print('Test  log. lik. = %6.3f +/- %6.3f' % (-np.array(test_logliks).mean(), np.array(test_logliks).var() ** 0.5))
+    print('Train RMSE      = %6.3f +/- %6.3f' % (np.array(train_rmses).mean(), np.array(train_rmses).var() ** 0.5))
+    print('Test  RMSE      = %6.3f +/- %6.3f' % (np.array(test_rmses).mean(), np.array(test_rmses).var() ** 0.5))
+
+    return best_net
 #
 #
 # # %% md
@@ -496,16 +496,19 @@ plt.show()
 #
 # # %%
 #
-# np.random.seed(0)
+np.random.seed(0)
 # !wget
 # "https://archive.ics.uci.edu/ml/machine-learning-databases/00294/CCPP.zip" - -no - check - certificate
-# zipped = zipfile.ZipFile("CCPP.zip")
+zipped = zipfile.ZipFile("/data/weiyuhua/Bayesian-Neural-Networks/datasets/CCPP/CCPP.zip")
 # data = pd.read_excel(zipped.open('CCPP/Folds5x2_pp.xlsx'), header=0, delimiter="\t").values
-# np.random.shuffle(data)
+data = pd.read_excel('/data/weiyuhua/Bayesian-Neural-Networks/datasets/CCPP/Folds5x2_pp.xlsx', header=0, delimiter="\t")
+data = np.array(data)
+np.random.shuffle(data)
 #
 # # %%
 #
-# model = train_BBP(data, n_splits=10, num_epochs=100, num_units=100, learn_rate=1e-2, log_every=10)
+model = train_BBP(data, n_splits=10, num_epochs=100, num_units=100, learn_rate=1e-2, log_every=10)
+print(2)
 #
 # # %% md
 #

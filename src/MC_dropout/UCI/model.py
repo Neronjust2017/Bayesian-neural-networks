@@ -8,6 +8,7 @@ import torch.nn as nn
 def MC_dropout(act_vec, p=0.5, mask=True):
     return F.dropout(act_vec, p=p, training=mask, inplace=True)
 
+
 class Linear_2L(nn.Module):
     def __init__(self, input_dim, output_dim, n_hid):
         super(Linear_2L, self).__init__()
@@ -62,7 +63,7 @@ class Linear_2L(nn.Module):
 class MC_drop_net(BaseNet):
     eps = 1e-6
 
-    def __init__(self, lr=1e-3, channels_in=3, side_in=28, cuda=True, classes=10, batch_size=128, weight_decay=0, n_hid=1200):
+    def __init__(self, lr=1e-3, channels_in=9, side_in=128, cuda=True, classes=6, batch_size=128, weight_decay=0, n_hid=1200):
         super(MC_drop_net, self).__init__()
         cprint('y', ' Creating Net!! ')
         self.lr = lr
@@ -85,7 +86,7 @@ class MC_drop_net(BaseNet):
         if self.cuda:
             torch.cuda.manual_seed(42)
 
-        self.model = Linear_2L(input_dim=self.channels_in * self.side_in * self.side_in, output_dim=self.classes,
+        self.model = Linear_2L(input_dim=self.channels_in * self.side_in, output_dim=self.classes,
                                n_hid=self.n_hid)
         if self.cuda:
             self.model.cuda()

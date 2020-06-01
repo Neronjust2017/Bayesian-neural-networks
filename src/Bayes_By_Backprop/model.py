@@ -71,8 +71,6 @@ class BayesLinear_Normalq(nn.Module):
             lpw = self.prior.loglike(W) + self.prior.loglike(b)
             return output, lqw, lpw
 
-
-
 class bayes_linear_2L(nn.Module):
     """2 hidden layer Bayes By Backprop (VI) Network"""
     def __init__(self, input_dim, output_dim, n_hid, prior_instance):

@@ -62,6 +62,7 @@ class BayesLinear_local_reparam(nn.Module):
 
             act_W_mu = torch.mm(X, self.W_mu)  # self.W_mu + std_w * eps_W
             act_W_std = torch.sqrt(torch.mm(X.pow(2), std_w.pow(2)))
+            # torch.pow(input, exponent, out=None) 对输入input按元素求exponent次幂，并返回结果张量。
 
             # Tensor.new()  Constructs a new tensor of the same data type as self tensor.
             # the same random sample is used for every element in the minibatch output

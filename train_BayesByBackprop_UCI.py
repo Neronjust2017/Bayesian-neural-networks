@@ -14,7 +14,7 @@ import os
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 parser = argparse.ArgumentParser(description='Train Bayesian Neural Net on MNIST with Variational Inference')
 parser.add_argument('--model', type=str, nargs='?', action='store', default='Gaussian_prior',
@@ -55,7 +55,7 @@ log_interval = 1
 # dataset
 
 cprint('c', '\nData:')
-file_name = './datasets/UCI_HAR_Dataset'
+file_name = '/data/weiyuhua/data/mts_data/UCI_HAR_Dataset'
 x_train, y_train, x_test, y_test = readmts_uci_har(file_name)
 data = np.concatenate((x_train, x_test),axis=0)
 label = np.concatenate((y_train, y_test),axis=0)
@@ -129,7 +129,7 @@ elif args.model == 'Gaussian_prior':
     net = BBP_Bayes_Net(lr=lr, channels_in=9, side_in=128, cuda=use_cuda, classes=6, batch_size=batch_size,
                         Nbatches=(NTrainPointsMNIST / batch_size), nhid=1200,
                         prior_instance=isotropic_gauss_prior(mu=0, sigma=args.prior_sig))
-elif args.model == 'GMM_prior':
+elif args.model == 'GMM_prior': #混合高斯模型  spike-and-slab
     net = BBP_Bayes_Net(lr=lr, channels_in=9, side_in=128, cuda=use_cuda, classes=6, batch_size=batch_size,
                         Nbatches=(NTrainPointsMNIST / batch_size), nhid=1200,
                         prior_instance=spike_slab_2GMM(mu1=0, mu2=0, sigma1=args.prior_sig, sigma2=0.0005, pi=0.75))
