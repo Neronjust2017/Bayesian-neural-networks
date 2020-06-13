@@ -45,6 +45,12 @@ def to_variable(var=(), cuda=True, volatile=False):
 
 
 # %%
+def log_gaussian_loss_1(output, target, sigma, no_dim):
+    exponent = -0.5 * (target - output) ** 2 / sigma ** 2
+    log_coeff = -no_dim * torch.log(sigma)
+
+    return -(log_coeff + exponent).sum()
+
 def log_gaussian_loss(output, target):
     # exponent = -0.5 * (target - output) ** 2 / sigma ** 2
     exponent = -0.5 * (target - output) ** 2
@@ -94,7 +100,7 @@ class MC_Dropout_Layer(nn.Module):
 # %%
 
 class MC_Dropout_Model(nn.Module):
-    def __init__(self, input_dim, output_dim, no_units):
+    def __init__(self, input_dim, output_dim, no_units, init_log_noise):
         super(MC_Dropout_Model, self).__init__()
 
         self.input_dim = input_dim
@@ -109,7 +115,7 @@ class MC_Dropout_Model(nn.Module):
         # activation to be used between hidden layers
         # self.activation = nn.ReLU(inplace=True)
         self.activation = nn.Tanh()
-        # self.log_noise = nn.Parameter(torch.cuda.FloatTensor([init_log_noise]))
+        self.log_noise = nn.Parameter(torch.cuda.FloatTensor([init_log_noise]))
 
     def forward(self, x):
         x = x.view(-1, self.input_dim)
@@ -149,11 +155,11 @@ class MC_Dropout_Wrapper:
         self.no_batches = no_batches
 
         self.network = MC_Dropout_Model(input_dim=input_dim, output_dim=output_dim,
-                                        no_units=no_units)
+                                        no_units=no_units, init_log_noise=0)
         self.network.cuda()
 
         self.optimizer = torch.optim.Adam(self.network.parameters(), lr=learn_rate, weight_decay=weight_decay)
-        self.loss_func = log_gaussian_loss
+        self.loss_func = log_gaussian_loss_1
 
     def fit(self, x, y):
         x, y = to_variable(var=(x, y), cuda=True)
@@ -163,7 +169,7 @@ class MC_Dropout_Wrapper:
 
         output = self.network(x)
         # print(output)
-        loss = self.loss_func(output, y) / len(x)
+        loss = self.loss_func(output, y, self.network.log_noise, 1) / len(x)
         # print(y)
 
         loss.backward()
@@ -172,73 +178,25 @@ class MC_Dropout_Wrapper:
         return loss
 
 
-# %%
-import pandas as pd
+import h5py
+f = h5py.File('./data/train.h5','r')
+x_train = f['data'].value
+y_train = f['label'].value
 
-data_url = './monthly_in_situ_co2_mlo.csv'
-
-co2_data = pd.read_csv(data_url, sep=',')
-
-y = np.array(co2_data['CO2'])
-
-# diff = []
-# for i in range(1, len(y)):
-#     value = y[i] - y[i - 1]
-#     diff.append(value)
-
-# y = np.array(diff)[:500]
-
-x = np.arange(0, len(y))
-x_train = x[:400]
-x_test = x[400:]
-
-y_train = y[:400]
-y_test = y[400:]
-
-x_means, x_stds = x_train.mean(axis=0), x_train.var(axis=0) ** 0.5
-y_means, y_stds = y_train.mean(axis=0), y_train.var(axis=0) ** 0.5
-
-x_train = (x_train - x_means) / x_stds
-y_train = (y_train - y_means) / y_stds
-
-x_test = (x_test - x_means) / x_stds
-y_test = (y_test - y_means) / y_stds
-
-ind = np.random.permutation(len(x_train))
-x_train = x_train[ind]
-y_train = y_train[ind]
-
-x_train = x_train.reshape([x_train.shape[0],1])
-y_train = y_train.reshape([y_train.shape[0],1])
-
-x_test = x_test.reshape([x_test.shape[0],1])
-y_test = y_test.reshape([y_test.shape[0],1])
-
-# np.random.seed(2)
-# no_points = 400
-# lengthscale = 1
-# variance = 1.0
-# sig_noise = 0.3
-# x = np.random.uniform(-3, 3, no_points)[:, None]
-# x.sort(axis=0)
-#
-# k = GPy.kern.RBF(input_dim=1, variance=variance, lengthscale=lengthscale)
-# C = k.K(x, x) + np.eye(no_points) * sig_noise ** 2
-#
-# y = np.random.multivariate_normal(np.zeros((no_points)), C)[:, None]
-# y = (y - y.mean())
-# x_train = x[75:325]
-# y_train = y[75:325]
+f = h5py.File('./data/test.h5','r')
+x_test = f['data'].value
+y_test = f['label'].value
 
 plt.figure(figsize=(50, 5))
 plt.style.use('default')
 plt.plot(x_train, y_train, color='black',linewidth=1)
+plt.plot(x_test, y_test, color='red',linewidth=1)
 plt.show()
 
 num_epochs, batch_size, nb_train = 1000, len(x_train), len(x_train)
 
 net = MC_Dropout_Wrapper(input_dim=1, output_dim=1, no_units=1024, learn_rate=1e-2,
-                         batch_size=batch_size, no_batches=1, init_log_noise=0, weight_decay=0.005)
+                         batch_size=batch_size, no_batches=1, init_log_noise=0, weight_decay=1e-6)
 
 for i in range(num_epochs):
 
