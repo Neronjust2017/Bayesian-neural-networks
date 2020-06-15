@@ -51,7 +51,7 @@ args = parser.parse_args()
 
 # Where to save models weights
 models_dir = args.models_dir
-# Where to save plots and error, accuracy vectors
+# Where to save plots and rmse, accuracy vectors
 results_dir = args.results_dir
 
 mkdir(models_dir)
@@ -126,6 +126,10 @@ x_test = torch.from_numpy(X_test).float()
 y_test = torch.from_numpy(y_test).float()
 print(x_test.size(), y_test.size())
 testset = torch.utils.data.TensorDataset(x_test, y_test)
+
+inputs = 13
+outputs = 1
+
 ## ---------------------------------------------------------------------------------------------------------------------
 # net dims
 cprint('c', '\nNetwork:')
@@ -171,7 +175,7 @@ for iii in range(Nruns):
                                                 num_workers=3)
 
     ###############################################################
-    net = Bootstrap_Net(lr=lr, channels_in=1, side_in=28, cuda=use_cuda, classes=10, batch_size=batch_size,
+    net = Bootstrap_Net_BH(lr=lr, input_dim=inputs, cuda=use_cuda, output_dim=outputs, batch_size=batch_size,
                         weight_decay=weight_decay, n_hid=1200)
 
     epoch = 0
@@ -182,12 +186,12 @@ for iii in range(Nruns):
 
     print('  init cost variables:')
     pred_cost_train = np.zeros(nb_epochs)
-    err_train = np.zeros(nb_epochs)
+    rmse_train = np.zeros(nb_epochs)
 
     cost_dev = np.zeros(nb_epochs)
-    err_dev = np.zeros(nb_epochs)
+    rmse_dev = np.zeros(nb_epochs)
     # best_cost = np.inf
-    best_err = np.inf
+    best_rmse = np.inf
 
     nb_its_dev = 1
 
@@ -200,19 +204,19 @@ for iii in range(Nruns):
         nb_samples = 0
 
         for x, y in trainloader:
-            cost_pred, err = net.fit(x, y)
+            cost_pred, rmse = net.fit(x, y)
 
-            err_train[i] += err
+            rmse_train[i] += rmse
             pred_cost_train[i] += cost_pred
             nb_samples += len(x)
 
         pred_cost_train[i] /= nb_samples
-        err_train[i] /= nb_samples
+        rmse_train[i] /= nb_samples
 
         toc = time.time()
         net.epoch = i
         # ---- print
-        print("it %d/%d, Jtr_pred = %f, err = %f, " % (i, nb_epochs, pred_cost_train[i], err_train[i]), end="")
+        print("it %d/%d, Jtr_pred = %f, rmse = %f, " % (i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
         cprint('r', '   time: %f seconds\n' % (toc - tic))
 
         # ---- dev
@@ -220,19 +224,19 @@ for iii in range(Nruns):
             net.set_mode_train(False)
             nb_samples = 0
             for j, (x, y) in enumerate(valloader):
-                cost, err, probs = net.eval(x, y)
+                cost, rmse  = net.eval(x, y)
 
                 cost_dev[i] += cost
-                err_dev[i] += err
+                rmse_dev[i] += rmse
                 nb_samples += len(x)
 
             cost_dev[i] /= nb_samples
-            err_dev[i] /= nb_samples
+            rmse_dev[i] /= nb_samples
 
-            cprint('g', '    Jdev = %f, err = %f\n' % (cost_dev[i], err_dev[i]))
+            cprint('g', '    Jdev = %f, rmse = %f\n' % (cost_dev[i], rmse_dev[i]))
 
-            if err_dev[i] < best_err:
-                best_err = err_dev[i]
+            if rmse_dev[i] < best_rmse:
+                best_rmse = rmse_dev[i]
 
     toc0 = time.time()
     runtime_per_it = (toc0 - tic0) / float(nb_epochs)
@@ -244,10 +248,10 @@ for iii in range(Nruns):
     nb_parameters = net.get_nb_parameters()
     best_cost_dev = np.min(cost_dev)
     best_cost_train = np.min(pred_cost_train)
-    err_dev_min = err_dev[::nb_its_dev].min()
+    rmse_dev_min = rmse_dev[::nb_its_dev].min()
 
     print('  cost_dev: %f (cost_train %f)' % (best_cost_dev, best_cost_train))
-    print('  err_dev: %f' % (err_dev_min))
+    print('  rmse_dev: %f' % (rmse_dev_min))
     print('  nb_parameters: %d (%s)' % (nb_parameters, humansize(nb_parameters)))
     print('  time_per_it: %fs\n' % (runtime_per_it))
 
@@ -269,7 +273,7 @@ for iii in range(Nruns):
     plt.xlabel('epoch')
     plt.grid(b=True, which='major', color='k', linestyle='-')
     plt.grid(b=True, which='minor', color='k', linestyle='--')
-    lgd = plt.legend(['train error', 'test error'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
+    lgd = plt.legend(['train rmse', 'test rmse'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
     ax = plt.gca()
     plt.title('classification costs')
     for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
@@ -280,21 +284,21 @@ for iii in range(Nruns):
 
     plt.figure(dpi=100)
     fig2, ax2 = plt.subplots()
-    ax2.set_ylabel('% error')
-    ax2.semilogy(range(0, nb_epochs, nb_its_dev), 100 * err_dev[::nb_its_dev], 'b-')
-    ax2.semilogy(100 * err_train, 'r--')
+    ax2.set_ylabel('% rmse')
+    ax2.semilogy(range(0, nb_epochs, nb_its_dev), 100 * rmse_dev[::nb_its_dev], 'b-')
+    ax2.semilogy(100 * rmse_train, 'r--')
     plt.xlabel('epoch')
     plt.grid(b=True, which='major', color='k', linestyle='-')
     plt.grid(b=True, which='minor', color='k', linestyle='--')
     ax2.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
     ax2.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-    lgd = plt.legend(['test error', 'train error'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
+    lgd = plt.legend(['test rmse', 'train rmse'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
     ax = plt.gca()
     for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
                  ax.get_xticklabels() + ax.get_yticklabels()):
         item.set_fontsize(textsize)
         item.set_weight('normal')
-    plt.savefig(results_dir + '/err%d.png' % iii, bbox_extra_artists=(lgd,), box_inches='tight')
+    plt.savefig(results_dir + '/rmse%d.png' % iii, bbox_extra_artists=(lgd,), box_inches='tight')
 
 
 save_object(weight_set_samples, models_dir+'/state_dicts.pkl')

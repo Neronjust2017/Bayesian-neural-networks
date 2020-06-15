@@ -231,7 +231,7 @@ class Bootstrap_Net_BH(BaseNet):
         #         if self.cuda:
         #             torch.cuda.manual_seed(42)
 
-        self.model = Linear_2L(input_dim=self.input_dim, output_dim=self.output_dim,
+        self.model = Linear_1L(input_dim=self.input_dim, output_dim=self.output_dim,
                                n_hid=self.n_hid)
         if self.cuda:
             self.model.cuda()
@@ -254,30 +254,32 @@ class Bootstrap_Net_BH(BaseNet):
         self.optimizer.zero_grad()
 
         out = self.model(x)
-        loss = F.cross_entropy(out, y, reduction='sum')
+        loss = F.mse_loss(out, y, reduction='sum')
 
         loss.backward()
         self.optimizer.step()
 
         # out: (batch_size, out_channels, out_caps_dims)
-        pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        err = pred.ne(y.data).sum()
+        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
+        # err = pred.ne(y.data).sum()
+        rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
 
-        return loss.data, err
+        return loss.data, rmse.data
 
     def eval(self, x, y, train=False):
         x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
 
         out = self.model(x)
 
-        loss = F.cross_entropy(out, y, reduction='sum')
+        loss = F.mse_loss(out, y, reduction='sum')
 
-        probs = F.softmax(out, dim=1).data.cpu()
+        # probs = F.softmax(out, dim=1).data.cpu()
+        #
+        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
+        # err = pred.ne(y.data).sum()
+        rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
 
-        pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        err = pred.ne(y.data).sum()
-
-        return loss.data, err, probs
+        return loss.data, rmse.data
 
     def get_weight_samples(self):
         weight_vec = []
