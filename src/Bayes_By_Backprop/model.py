@@ -22,7 +22,6 @@ def sample_weights(W_mu, b_mu, W_p, b_p):
 
     return W, b
 
-
 class BayesLinear_Normalq(nn.Module):
     """Linear Layer where weights are sampled from a fully factorised Normal with learnable parameters. The likelihood
      of the weight samples under the prior and the approximate posterior are returned with each forward pass in order
@@ -66,6 +65,62 @@ class BayesLinear_Normalq(nn.Module):
             b = self.b_mu + 1 * std_b * eps_b
 
             output = torch.mm(X, W) + b.unsqueeze(0).expand(X.shape[0], -1)  # (batch_size, n_output)
+
+            lqw = isotropic_gauss_loglike(W, self.W_mu, std_w) + isotropic_gauss_loglike(b, self.b_mu, std_b)
+            lpw = self.prior.loglike(W) + self.prior.loglike(b)
+            return output, lqw, lpw
+
+class BayesConv_Normalq(nn.Module):
+    """Convolutional Layer where weights are sampled from a fully factorised Normal with learnable parameters. The likelihood
+        of the weight samples under the prior and the approximate posterior are returned with each forward pass in order
+        to estimate the KL term in the ELBO.
+        """
+    def __init__(self, n_in_channels, n_out_channels, kernel_size, prior_class, stride=1,
+                 padding=0, dilation=1):
+        super(BayesConv_Normalq, self).__init__()
+        self.n_in_channels = n_in_channels
+        self.n_out_channels = n_out_channels
+        self.kernel_size = (kernel_size, kernel_size)
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
+        self.groups = 1
+        self.prior = prior_class
+
+        # Learnable parameters -> Initialisation is set empirically.
+        self.W_mu = nn.Parameter(torch.Tensor(n_out_channels, n_in_channels, *self.kernel_size).uniform_(-0.1, 0.1))
+        self.W_p = nn.Parameter(torch.Tensor(n_out_channels, n_in_channels, *self.kernel_size).uniform_(-3, -2))
+
+        self.b_mu = nn.Parameter(torch.Tensor(1, n_out_channels, 1, 1).uniform_(-0.1, 0.1))
+        self.b_p = nn.Parameter(torch.Tensor(1, n_out_channels, 1, 1).uniform_(-3, -2))
+
+        self.out = lambda input, kernel, bias: F.conv2d(input, kernel, bias, self.stride, self.padding,
+                                                       self.dilation, self.groups)
+
+        self.lpw = 0
+        self.lqw = 0
+
+    def forward(self, X, sample=False):
+
+        if not self.training and not sample:  # When training return MLE of w for quick validation
+            output = self.out_bias(X, self.W_mu, self.b_mu)
+            return output, 0, 0
+
+        else:
+
+            # Tensor.new()  Constructs a new tensor of the same data type as self tensor.
+            # the same random sample is used for every element in the minibatch
+            eps_W = Variable(self.W_mu.data.new(self.W_mu.size()).normal_())
+            eps_b = Variable(self.b_mu.data.new(self.b_mu.size()).normal_())
+
+            # sample parameters
+            std_w = 1e-6 + F.softplus(self.W_p, beta=1, threshold=20)
+            std_b = 1e-6 + F.softplus(self.b_p, beta=1, threshold=20)
+
+            W = self.W_mu + 1 * std_w * eps_W
+            b = self.b_mu + 1 * std_b * eps_b
+
+            output = self.out(X, W, b)
 
             lqw = isotropic_gauss_loglike(W, self.W_mu, std_w) + isotropic_gauss_loglike(b, self.b_mu, std_b)
             lpw = self.prior.loglike(W) + self.prior.loglike(b)
@@ -134,6 +189,82 @@ class bayes_linear_2L(nn.Module):
 
         return predictions, tlqw_vec, tlpw_vec
 
+class bayes_linear_4L(nn.Module):
+    """2 hidden layer Bayes By Backprop (VI) Network"""
+    def __init__(self, input_dim, output_dim, n_hid, prior_instance, activation='ReLU'):
+        super(bayes_linear_4L, self).__init__()
+
+        # prior_instance = isotropic_gauss_prior(mu=0, sigma=0.1)
+        # prior_instance = spike_slab_2GMM(mu1=0, mu2=0, sigma1=0.135, sigma2=0.001, pi=0.5)
+        # prior_instance = isotropic_gauss_prior(mu=0, sigma=0.1)
+        self.prior_instance = prior_instance
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        self.bfc1 = BayesLinear_Normalq(input_dim, n_hid, self.prior_instance)
+        self.bfc2 = BayesLinear_Normalq(n_hid, n_hid, self.prior_instance)
+        self.bfc3 = BayesLinear_Normalq(n_hid, n_hid, self.prior_instance)
+        self.bfc4 = BayesLinear_Normalq(n_hid, n_hid, self.prior_instance)
+        self.bfc5 = BayesLinear_Normalq(n_hid, output_dim, self.prior_instance)
+
+        # choose your non linearity
+        if activation == 'ReLU':
+            self.act = nn.ReLU(inplace=True)
+        elif activation == 'Tanh':
+            self.act = nn.Tanh()
+        elif activation == 'Sigmoid':
+            self.act = nn.Sigmoid()
+
+    def forward(self, x, sample=False):
+        tlqw = 0
+        tlpw = 0
+
+        x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        # -----------------
+        x, lqw, lpw = self.bfc1(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x = self.act(x)
+        # -----------------
+        x, lqw, lpw = self.bfc2(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x = self.act(x)
+        # -----------------
+        y, lqw, lpw = self.bfc3(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x, lqw, lpw = self.bfc4(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x = self.act(x)
+        # -----------------
+        x, lqw, lpw = self.bfc5(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+
+        return y, tlqw, tlpw
+
+    def sample_predict(self, x, Nsamples):
+        """Used for estimating the data's likelihood by approximately marginalising the weights with MC"""
+        # Just copies type from x, initializes new vector
+        predictions = x.data.new(Nsamples, x.shape[0], self.output_dim)
+        tlqw_vec = np.zeros(Nsamples)
+        tlpw_vec = np.zeros(Nsamples)
+
+        for i in range(Nsamples):
+            y, tlqw, tlpw = self.forward(x, sample=True)
+            predictions[i] = y
+            tlqw_vec[i] = tlqw
+            tlpw_vec[i] = tlpw
+
+        return predictions, tlqw_vec, tlpw_vec
+
 class BBP_Bayes_Net(BaseNet):
     """Full network wrapper for Bayes By Backprop nets with methods for training, prediction and weight prunning"""
     eps = 1e-6
@@ -163,8 +294,12 @@ class BBP_Bayes_Net(BaseNet):
         if self.cuda:
             torch.cuda.manual_seed(42)
 
-        self.model = bayes_linear_2L(input_dim=self.channels_in * self.side_in * self.side_in,
+        # self.model = bayes_linear_2L(input_dim=self.channels_in * self.side_in * self.side_in,
+        #                              output_dim=self.classes, n_hid=self.nhid, prior_instance=self.prior_instance)
+
+        self.model = bayes_linear_4L(input_dim=self.channels_in * self.side_in * self.side_in,
                                      output_dim=self.classes, n_hid=self.nhid, prior_instance=self.prior_instance)
+
         if self.cuda:
             self.model.cuda()
         #             cudnn.benchmark = True
@@ -409,5 +544,128 @@ class BBP_Bayes_Net(BaseNet):
                 n_unmasked += mask_dict[layer_name + '.b'].sum()
 
         return original_state_dict, n_unmasked
+
+class BBP_Bayes_Net_BH(BaseNet):
+    """Full network wrapper for Bayes By Backprop nets with methods for training, prediction and weight prunning"""
+    eps = 1e-6
+
+    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, Nbatches=0,
+                 nhid=1200, prior_instance=laplace_prior(mu=0, b=0.1), momentum=0):
+        super(BBP_Bayes_Net_BH, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.batch_size = batch_size
+        self.Nbatches = Nbatches
+        self.prior_instance = prior_instance
+        self.nhid = nhid
+        self.momentum = momentum
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
+
+        self.test = False
+
+    def create_net(self):
+        torch.manual_seed(42)
+        if self.cuda:
+            torch.cuda.manual_seed(42)
+
+        # self.model = bayes_linear_4L(input_dim=self.channels_in * self.side_in * self.side_in,
+        #                              output_dim=self.classes, n_hid=self.nhid, prior_instance=self.prior_instance)
+        self.model = BayesLinear_Normalq(n_in=self.input_dim, n_out=self.output_dim, prior_class=self.prior_instance)
+
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
+
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
+
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
+
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
+
+    def fit(self, x, y, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        self.optimizer.zero_grad()
+
+        rmse = 0
+        ll = 0
+
+        if samples == 1:
+            out, tlqw, tlpw = self.model(x)
+            mlpdw = F.mse_loss(out, y, reduction='sum')
+            Edkl = (tlqw - tlpw) / self.Nbatches
+            rmse = F.mse_loss(out, y, reduction='mean')**0.5
+
+
+        elif samples > 1:
+            mlpdw_cum = 0
+            Edkl_cum = 0
+            rmse_cum = 0
+
+            for i in range(samples):
+                out, tlqw, tlpw = self.model(x, sample=True)
+                mlpdw_i = F.mse_loss(out, y, reduction='sum')
+                Edkl_i = (tlqw - tlpw) / self.Nbatches
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                Edkl_cum = Edkl_cum + Edkl_i
+
+                rmse_i = F.mse_loss(out, y, reduction='mean')**0.5
+                rmse_cum = rmse_cum + rmse_i
+
+            mlpdw = mlpdw_cum / samples
+            Edkl = Edkl_cum / samples
+            rmse = rmse_cum / samples
+
+        loss = Edkl + mlpdw
+        loss.backward()
+        self.optimizer.step()
+
+        # out: (batch_size, out_channels, out_caps_dims)
+        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
+        # err = pred.ne(y.data).sum()
+
+        return Edkl.data, mlpdw.data, rmse.data
+
+    def eval(self, x, y, train=False, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        loss = 0
+        rmse = 0
+
+        rmses = torch.zeros(x.shape[0], self.output_dim, samples)
+
+        if samples == 1:
+            out, _, _ = self.model(x)
+            loss = F.mse_loss(out, y, reduction='sum')
+            rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
+            rmses = F.mse_loss(out, y, reduction='none')
+
+        elif samples > 1:
+            mlpdw_cum = 0
+            rmse_cum = 0
+
+            for i in range(samples):
+                out, _, _ = self.model(x, sample=True)
+                mlpdw_i = F.mse_loss(out, y, reduction='sum')
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                rmse_i = F.mse_loss(out, y, reduction='mean') ** 0.5
+                rmse_cum = rmse_cum + rmse_i
+                rmses[:,:,i] = F.mse_loss(out, y, reduction='none')
+
+            mlpdw = mlpdw_cum / samples
+            rmse = rmse_cum / samples
+            loss = mlpdw
+
+        return loss.data, rmse.data, rmses.data
 
 
