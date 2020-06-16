@@ -597,20 +597,17 @@ class BBP_Bayes_Net_BH(BaseNet):
 
         self.optimizer.zero_grad()
 
-        rmse = 0
-        ll = 0
-
+        outputs = torch.zeros(x.shape[0], self.output_dim, samples).cuda()
         if samples == 1:
             out, tlqw, tlpw = self.model(x)
             mlpdw = F.mse_loss(out, y, reduction='sum')
             Edkl = (tlqw - tlpw) / self.Nbatches
-            rmse = F.mse_loss(out, y, reduction='mean')**0.5
+            outputs[:,:,0] = out
 
 
         elif samples > 1:
             mlpdw_cum = 0
             Edkl_cum = 0
-            rmse_cum = 0
 
             for i in range(samples):
                 out, tlqw, tlpw = self.model(x, sample=True)
@@ -619,12 +616,13 @@ class BBP_Bayes_Net_BH(BaseNet):
                 mlpdw_cum = mlpdw_cum + mlpdw_i
                 Edkl_cum = Edkl_cum + Edkl_i
 
-                rmse_i = F.mse_loss(out, y, reduction='mean')**0.5
-                rmse_cum = rmse_cum + rmse_i
+                outputs[:, :, i] = out
 
             mlpdw = mlpdw_cum / samples
             Edkl = Edkl_cum / samples
-            rmse = rmse_cum / samples
+
+        mean = torch.mean(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
 
         loss = Edkl + mlpdw
         loss.backward()
@@ -634,38 +632,35 @@ class BBP_Bayes_Net_BH(BaseNet):
         # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
         # err = pred.ne(y.data).sum()
 
-        return Edkl.data, mlpdw.data, rmse.data
+        return Edkl.data, mlpdw.data, mse.data
 
     def eval(self, x, y, train=False, samples=1):
         x, y = to_variable(var=(x, y), cuda=self.cuda)
 
         loss = 0
-        rmse = 0
 
-        rmses = torch.zeros(x.shape[0], self.output_dim, samples)
+        outputs = torch.zeros(x.shape[0], self.output_dim, samples).cuda()
 
         if samples == 1:
             out, _, _ = self.model(x)
             loss = F.mse_loss(out, y, reduction='sum')
-            rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
-            rmses = F.mse_loss(out, y, reduction='none')
+            outputs[:,:,0] = out
 
         elif samples > 1:
             mlpdw_cum = 0
-            rmse_cum = 0
 
             for i in range(samples):
                 out, _, _ = self.model(x, sample=True)
                 mlpdw_i = F.mse_loss(out, y, reduction='sum')
                 mlpdw_cum = mlpdw_cum + mlpdw_i
-                rmse_i = F.mse_loss(out, y, reduction='mean') ** 0.5
-                rmse_cum = rmse_cum + rmse_i
-                rmses[:,:,i] = F.mse_loss(out, y, reduction='none')
+                outputs[:,:,i] = out
 
             mlpdw = mlpdw_cum / samples
-            rmse = rmse_cum / samples
             loss = mlpdw
 
-        return loss.data, rmse.data, rmses.data
+        mean = torch.mean(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data
 
 

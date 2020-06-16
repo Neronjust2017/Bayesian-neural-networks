@@ -1,5 +1,15 @@
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
 from sklearn.datasets import load_boston
+import os
+import sys
+
+curPath = os.path.abspath(os.path.dirname(__file__))
+print(curPath)
+rootPath = curPath
+for i in range(2):
+    rootPath = os.path.split(rootPath)[0]
+print(rootPath)
+sys.path.append(rootPath)
 
 import numpy as np
 import torch
@@ -13,6 +23,8 @@ from src.Bayes_By_Backprop.model import *
 from src.Bayes_By_Backprop_Local_Reparametrization.model import *
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 def _get_index_train_test_path(split_num, train = True):
     """
@@ -36,14 +48,14 @@ if __name__ == '__main__':
 
     _DATA_DIRECTORY_PATH = './data/'
 
-    priors = ['Gaussian_prior', 'Laplace_prior', 'GMM_prior']
-    prior_sigs = [0.1]
-    lrs = [1e-4]
-    momentums = [0]
-    n_samples = [1]
+    priors = ['GMM_prior','Laplace_prior']
+    prior_sigs = [1, 0.1, 0.05, 0.01]
+    lrs = [1e-4, 1e-3]
+    momentums = [0, 0.9]
+    n_samples = [3, 10]
     NTrainPoints = 364
     batch_size = 100
-    nb_epochs = 2
+    nb_epochs = 40
     log_interval = 1
 
     for prior in priors :
@@ -72,10 +84,10 @@ if __name__ == '__main__':
                             print('Invalid prior type')
                             exit(1)
 
-                        rmses = 0
-                        rmse_stds = 0
+                        rmses = []
+                        # rmse_stds = 0
 
-                        n_splits = 1
+                        n_splits = 5
 
                         for split in range(int(n_splits)):
 
@@ -194,17 +206,22 @@ if __name__ == '__main__':
                                 tic = time.time()
                                 nb_samples = 0
 
-                                for x, y in trainloader:
-                                    cost_dkl, cost_pred, rmse = net.fit(x, y, samples=ELBO_samples)
 
-                                    rmse_train[i] += rmse
+                                for x, y in trainloader:
+                                    cost_dkl, cost_pred, mse = net.fit(x, y, samples=ELBO_samples)
                                     kl_cost_train[i] += cost_dkl
                                     pred_cost_train[i] += cost_pred
+                                    rmse_train[i] += mse
                                     nb_samples += len(x)
 
                                 kl_cost_train[i] /= nb_samples  # Normalise by number of samples in order to get comparable number to the -log like
                                 pred_cost_train[i] /= nb_samples
-                                rmse_train[i] /= nb_samples
+                                rmse_train[i] = (rmse_train[i] / nb_samples)**0.5
+
+                                # ###################
+                                # pred_cost_train[i] *= y_stds
+                                # rmse_train[i] *= y_stds
+                                # ###################
 
                                 toc = time.time()
                                 net.epoch = i
@@ -217,22 +234,27 @@ if __name__ == '__main__':
                                 if i % nb_its_dev == 0:
                                     net.set_mode_train(False)
                                     nb_samples = 0
-                                    T = 2
+                                    T = 1000
 
-                                    rmses_dev = np.zeros((X_train.shape[0], outputs, T))
-                                    start = 0
+                                    # rmses_dev = np.zeros((X_train.shape[0], outputs, T))
+                                    # start = 0
                                     for j, (x, y) in enumerate(valloader):
-                                        end = len(x) + start
-                                        cost, rmse, rmses_dev[start:end,:,:] = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
-                                        start = end
+                                        # end = len(x) + start
+                                        cost, mse = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                        # start = end
                                         cost_dev[i] += cost
-                                        rmse_dev[i] += rmse
+                                        rmse_dev[i] += mse
                                         nb_samples += len(x)
 
                                     cost_dev[i] /= nb_samples
-                                    rmse_dev[i] /= nb_samples
+                                    rmse_dev[i] = (rmse_dev[i] / nb_samples)**0.5
 
-                                    rmse_std_dev = np.std(np.mean(rmses_dev))
+                                    # ###################
+                                    # cost_dev[i] *= y_stds
+                                    # rmse_dev[i] *= y_stds
+                                    # ###################
+
+                                    # rmse_std_dev = np.std(np.mean(rmses_dev))
 
                                     cprint('g', '    Jdev = %f, rmse = %f\n' % (cost_dev[i], rmse_dev[i]))
 
@@ -253,25 +275,30 @@ if __name__ == '__main__':
                             nb_samples = 0
                             cost_test = 0
                             rmse_test = 0
-                            T = 2
-                            rmses_test = np.zeros((X_train.shape[0], outputs, T))
-                            start = 0
+                            T = 1000
+                            # rmses_test = np.zeros((X_train.shape[0], outputs, T))
+                            # start = 0
                             for j, (x, y) in enumerate(testloader):
-                                end = len(x) + start
-                                cost, rmse, rmses_test[start:end,:,:] = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                # end = len(x) + start
+                                cost, mse = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
                                 cost_test += cost
-                                rmse_test += rmse
+                                rmse_test += mse
                                 nb_samples += len(x)
 
                             cost_test /= nb_samples
-                            rmse_test /= nb_samples
-                            rmse_std_test = np.std(np.mean(rmses_test))
+                            rmse_test = (rmse_test / nb_samples)**0.5
+                            # rmse_std_test = np.std(np.mean(rmses_test))
 
                             cost_test = cost_test.cpu().data.numpy()
                             rmse_test = rmse_test.cpu().data.numpy()
 
-                            rmses += rmse_test
-                            rmse_stds += rmse_std_test
+                            # ###################
+                            # cost_test *= y_stds
+                            # rmse_test *= y_stds
+                            # ###################
+
+                            rmses.append(rmse_test*y_stds)
+                            # rmse_stds += rmse_std_test
 
                             best_cost_dev = np.min(cost_dev)
                             best_cost_train = np.min(pred_cost_train)
@@ -297,17 +324,16 @@ if __name__ == '__main__':
                             with open(results_val, "a") as myfile:
                                 myfile.write('Prior_' + str(prior) + '_Sigs_' + str(prior_sig) + \
                             '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_Nsample_' + str(n_sample) + ' :: ')
-                                myfile.write(repr(rmse_dev_min) + '\n')
+                                myfile.write('rmse %f ' % (rmse_dev_min*y_stds) + '\n')
 
                             # Storing testing results
                             with open(results_test, "a") as myfile:
                                 myfile.write('Prior_' + str(prior) + '_Sigs_' + str(prior_sig) + \
                             '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_Nsample_' + str(n_sample) + ' :: ')
-                                myfile.write(repr(rmse_test) + '\n')
+                                myfile.write('rmse %f ' % (rmse_test*y_stds) + '\n')
 
                             with open(results_file, "a") as myfile:
-                                myfile.write('errors %f +- %f (stddev) +- %f (std error) \n' % (
-                                    rmse_test, rmse_std_test, rmse_std_test / math.sqrt(n_splits)))
+                                myfile.write('rmse %f  \n' % (rmse_test*y_stds))
 
                             ## ---------------------------------------------------------------------------------------------------------------------
                             # fig cost vs its
@@ -364,9 +390,10 @@ if __name__ == '__main__':
                                 item.set_weight('normal')
                             plt.savefig(results_dir_split + '/rmse.png', bbox_extra_artists=(lgd,), box_inches='tight')
 
+                        rmses = np.array(rmses)
                         with open(results_file, "a") as myfile:
-                            myfile.write('Overall: \n errors %f +- %f (stddev)  \n' % (
-                                rmses/int(n_splits), rmse_stds/int(n_splits)))
+                            myfile.write('Overall: \n rmses %f +- %f (stddev)  \n' % (
+                                np.mean(rmses), np.std(rmses)/int(n_splits)))
 
 
 
