@@ -259,12 +259,7 @@ class Bootstrap_Net_BH(BaseNet):
         loss.backward()
         self.optimizer.step()
 
-        # out: (batch_size, out_channels, out_caps_dims)
-        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        # err = pred.ne(y.data).sum()
-        rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
-
-        return loss.data, rmse.data
+        return loss.data
 
     def eval(self, x, y, train=False):
         x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
@@ -273,13 +268,7 @@ class Bootstrap_Net_BH(BaseNet):
 
         loss = F.mse_loss(out, y, reduction='sum')
 
-        # probs = F.softmax(out, dim=1).data.cpu()
-        #
-        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        # err = pred.ne(y.data).sum()
-        rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
-
-        return loss.data, rmse.data
+        return loss.data, out.data
 
     def get_weight_samples(self):
         weight_vec = []

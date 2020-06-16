@@ -261,17 +261,18 @@ if __name__ == '__main__':
                                     if rmse_dev[i] < best_rmse:
                                         best_rmse = rmse_dev[i]
                                         cprint('b', 'best val rmse')
-                                        net.save(results_dir_split + '/theta_best_val_'+ str(split) + '.dat')
+                                        net.save(results_dir_split + '/theta_best_val.dat')
 
                             toc0 = time.time()
                             runtime_per_it = (toc0 - tic0) / float(nb_epochs)
                             cprint('r', '   average time: %f seconds\n' % runtime_per_it)
                             ## ---------------------------------------------------------------------------------------------------------------------
                             # results
+                            best_net = torch.load(results_dir_split + '/theta_best_val_'+ str(split) + '.dat')
                             cprint('c', '\nRESULTS:')
-                            nb_parameters = net.get_nb_parameters()
+                            nb_parameters = best_net.get_nb_parameters()
 
-                            net.set_mode_train(False)
+                            best_net.set_mode_train(False)
                             nb_samples = 0
                             cost_test = 0
                             rmse_test = 0
@@ -280,7 +281,7 @@ if __name__ == '__main__':
                             # start = 0
                             for j, (x, y) in enumerate(testloader):
                                 # end = len(x) + start
-                                cost, mse = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                cost, mse = best_net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
                                 cost_test += cost
                                 rmse_test += mse
                                 nb_samples += len(x)
