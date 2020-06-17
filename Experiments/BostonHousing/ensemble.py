@@ -51,14 +51,14 @@ if __name__ == '__main__':
     # weight_decays = [0]
     # n_nets = [2, 200]
     # momentums = [0, 0.9]
-    subsamples = [0.8, 0.9]
+    subsamples = [0.8]
     lrs = [1e-4]
-    weight_decays = [0]
-    n_nets = [2]
+    weight_decays = [1e-6]
+    n_nets = [10, 50]
     momentums = [0]
 
     batch_size = 100
-    nb_epochs = 1
+    nb_epochs = 40
     log_interval = 1
 
     for n_net in n_nets :
@@ -77,7 +77,7 @@ if __name__ == '__main__':
 
                         rmses = []
 
-                        n_splits = 5
+                        n_splits = 15
 
                         for split in range(int(n_splits)):
                             results_dir_split = results_dir + '/split_' + str(split)
@@ -320,7 +320,7 @@ if __name__ == '__main__':
                             with open(results_file, "a") as myfile:
                                 myfile.write('rmse %f  \n' % (rmse_test_split * y_stds))
 
-                            rmses.append(rmse_test_split)
+                            rmses.append(rmse_test_split*y_stds)
 
                             shutil.rmtree(results_dir_split)
 

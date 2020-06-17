@@ -1,0 +1,2 @@
+N_net: 10 Subsample: 0.8 Lr: 0.0001 Momentum: 0 Weight_decay: 1e-06 :: rmse 3.688452 
+N_net: 50 Subsample: 0.8 Lr: 0.0001 Momentum: 0 Weight_decay: 1e-06 :: rmse 3.591788 
