@@ -9,8 +9,10 @@ def MC_dropout(act_vec, p=0.5, mask=True):
     return F.dropout(act_vec, p=p, training=mask, inplace=True)
 
 class Linear_1L(nn.Module):
-    def __init__(self, input_dim, output_dim, n_hid):
+    def __init__(self, input_dim, output_dim, n_hid, pdrop):
         super(Linear_1L, self).__init__()
+
+        self.pdrop = pdrop
 
         self.input_dim = input_dim
         self.output_dim = output_dim
@@ -25,10 +27,15 @@ class Linear_1L(nn.Module):
         # self.act = nn.ELU(inplace=True)
         # self.act = nn.SELU(inplace=True)
 
-    def forward(self, x):
+    def forward(self, x, sample=True):
+        mask = self.training or sample  # if training or sampling, mc dropout will apply random binary mask
+        # Otherwise, for regular test set evaluation, we can just scale activations
+
         x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
         # -----------------
         x = self.fc1(x)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
         # -----------------
         x = self.act(x)
         # -----------------
@@ -209,7 +216,7 @@ class MC_drop_net(BaseNet):
 class MC_drop_net_BH(BaseNet):
     eps = 1e-6
 
-    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, weight_decay=0, n_hid=1200, momentum=0):
+    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, weight_decay=0, n_hid=1200, momentum=0, pdrop=0.5):
         super(MC_drop_net_BH, self).__init__()
         cprint('y', ' Creating Net!! ')
         self.lr = lr
@@ -221,6 +228,7 @@ class MC_drop_net_BH(BaseNet):
         self.n_hid = n_hid
         self.batch_size = batch_size
         self.momentum = momentum
+        self.pdrop = pdrop
         self.create_net()
         self.create_opt()
         self.epoch = 0
@@ -233,7 +241,7 @@ class MC_drop_net_BH(BaseNet):
             torch.cuda.manual_seed(42)
 
         self.model = Linear_1L(input_dim=self.input_dim, output_dim=self.output_dim,
-                               n_hid=self.n_hid)
+                               n_hid=self.n_hid, pdrop=self.pdrop)
         if self.cuda:
             self.model.cuda()
         #             cudnn.benchmark = True
@@ -243,14 +251,14 @@ class MC_drop_net_BH(BaseNet):
     def create_opt(self):
         #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
         #                                           weight_decay=0)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.5,
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum,
                                          weight_decay=self.weight_decay)
 
     #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
     #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
 
     def fit(self, x, y):
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
 
         self.optimizer.zero_grad()
 
@@ -260,30 +268,37 @@ class MC_drop_net_BH(BaseNet):
         loss.backward()
         self.optimizer.step()
 
-        # out: (batch_size, out_channels, out_caps_dims)
-        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        # err = pred.ne(y.data).sum()
-        rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
+        return loss.data
 
-        return loss.data, rmse.data
-
-    def eval(self, x, y, train=False):
+    def eval(self, x, y, train=False, samples=1):
         x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
 
-        out = self.model(x)
+        loss = 0
 
-        loss = F.mse_loss(out, y, reduction='sum')
+        outputs = torch.zeros(x.shape[0], self.output_dim, samples).cuda()
 
-        # probs = F.softmax(out, dim=1).data.cpu()
-        #
-        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        # err = pred.ne(y.data).sum()
-        rmse = F.mse_loss(out, y, reduction='mean') ** 0.5
+        if samples == 1:
+            out = self.model(x)
+            loss = F.mse_loss(out, y, reduction='sum')
+            outputs[:, :, 0] = out
 
-        return loss.data, rmse.data
+        elif samples > 1:
+
+            for i in range(samples):
+                out = self.model(x, sample=True)
+                loss_i = F.mse_loss(out, y, reduction='sum')
+                loss = loss + loss_i
+                outputs[:, :, i] = out
+
+            loss /= samples
+
+        mean = torch.mean(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data
 
     def sample_eval(self, x, y, Nsamples, logits=True, train=False):
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
 
         out = self.model.sample_predict(x, Nsamples)
 
