@@ -4,11 +4,9 @@ import os
 import sys
 
 curPath = os.path.abspath(os.path.dirname(__file__))
-print(curPath)
 rootPath = curPath
 for i in range(2):
     rootPath = os.path.split(rootPath)[0]
-print(rootPath)
 sys.path.append(rootPath)
 
 import numpy as np
@@ -22,8 +20,9 @@ from src.utils import mkdir
 from src.Bootstrap_Ensemble.model import *
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import shutil
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def _get_index_train_test_path(split_num, train = True):
     """
@@ -47,14 +46,19 @@ if __name__ == '__main__':
 
     _DATA_DIRECTORY_PATH = './data/'
 
+    # subsamples = [0.8, 0.9]
+    # lrs = [1e-4, 1e-3, 1e-2]
+    # weight_decays = [0]
+    # n_nets = [2, 200]
+    # momentums = [0, 0.9]
     subsamples = [0.8, 0.9]
-    lrs = [1e-4, 1e-3, 1e-2]
+    lrs = [1e-4]
     weight_decays = [0]
-    n_nets = [100, 200]
-    momentums = [0, 0.9]
+    n_nets = [2]
+    momentums = [0]
 
     batch_size = 100
-    nb_epochs = 40
+    nb_epochs = 1
     log_interval = 1
 
     for n_net in n_nets :
@@ -139,6 +143,7 @@ if __name__ == '__main__':
                             output = np.zeros((x_test.shape[0], outputs, n_net))
                             ###
                             for iii in range(n_net):
+                                print('Net ' + str(iii))
                                 keep_idx = []
                                 for idx in range(len(trainset)):
 
@@ -174,137 +179,138 @@ if __name__ == '__main__':
                                                                              shuffle=False, pin_memory=False,
                                                                              num_workers=3)
 
-                                    results_val_split = results_dir + '/results_val_split_' + str(split) + '.txt'
-                                    results_test_split = results_dir + '/results_test_split_' + str(split) + '.txt'
+                                results_val_split = results_dir + '/results_val_split_' + str(split) + '.txt'
+                                results_test_split = results_dir + '/results_test_split_' + str(split) + '.txt'
 
-                                    ###############################################################
-                                    net = Bootstrap_Net_BH(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
-                                                        batch_size=batch_size,
-                                                        weight_decay=weight_decay, n_hid=50)
+                                ###############################################################
+                                net = Bootstrap_Net_BH(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
+                                                    batch_size=batch_size,
+                                                    weight_decay=weight_decay, n_hid=50)
 
-                                    epoch = 0
+                                epoch = 0
 
-                                    ## ---------------------------------------------------------------------------------------------------------------------
-                                    # train
-                                    cprint('c', '\nTrain:')
-                                    print('  init cost variables:')
-                                    kl_cost_train = np.zeros(nb_epochs)
-                                    pred_cost_train = np.zeros(nb_epochs)
-                                    rmse_train = np.zeros(nb_epochs)
+                                ## ---------------------------------------------------------------------------------------------------------------------
+                                # train
+                                cprint('c', '\nTrain:')
+                                print('  init cost variables:')
+                                kl_cost_train = np.zeros(nb_epochs)
+                                pred_cost_train = np.zeros(nb_epochs)
+                                rmse_train = np.zeros(nb_epochs)
 
-                                    cost_dev = np.zeros(nb_epochs)
-                                    rmse_dev = np.zeros(nb_epochs)
-                                    best_rmse = np.inf
+                                cost_dev = np.zeros(nb_epochs)
+                                rmse_dev = np.zeros(nb_epochs)
+                                best_rmse = np.inf
 
-                                    nb_its_dev = 1
+                                nb_its_dev = 1
 
-                                    tic0 = time.time()
-                                    for i in range(epoch, nb_epochs):
+                                tic0 = time.time()
+                                for i in range(epoch, nb_epochs):
 
-                                        net.set_mode_train(True)
+                                    net.set_mode_train(True)
 
-                                        tic = time.time()
-                                        nb_samples = 0
-
-                                        for x, y in trainloader:
-                                            cost_pred = net.fit(x, y)
-
-                                            rmse_train[i] += cost_pred
-                                            pred_cost_train[i] += cost_pred
-                                            nb_samples += len(x)
-
-                                        pred_cost_train[i] /= nb_samples
-                                        rmse_train[i] = (rmse_train[i] / nb_samples)**0.5
-
-                                        toc = time.time()
-                                        net.epoch = i
-
-                                        # ---- print
-                                        print("it %d/%d, Jtr_pred = %f, rmse = %f, " % (
-                                        i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
-                                        cprint('r', '   time: %f seconds\n' % (toc - tic))
-
-                                        # ---- dev
-                                        if i % nb_its_dev == 0:
-                                            net.set_mode_train(False)
-                                            nb_samples = 0
-                                            for j, (x, y) in enumerate(valloader):
-                                                cost, out = net.eval(x, y)
-
-                                                cost_dev[i] += cost
-                                                rmse_dev[i] += cost
-                                                nb_samples += len(x)
-
-                                            cost_dev[i] /= nb_samples
-                                            rmse_dev[i] = (rmse_dev[i] / nb_samples)**0.5
-
-                                            cprint('g', '    Jdev = %f, err = %f\n' % (cost_dev[i], rmse_dev[i]))
-
-                                            if rmse_dev[i] < best_rmse:
-                                                best_rmse = rmse_dev[i]
-                                                cprint('b', 'best val rmse')
-                                                net.save(results_dir_split + '/theta_best_val_' + str(iii) + '.dat')
-
-                                    toc0 = time.time()
-                                    runtime_per_it = (toc0 - tic0) / float(nb_epochs)
-                                    cprint('r', '   average time: %f seconds\n' % runtime_per_it)
-                                    ## ---------------------------------------------------------------------------------------------------------------------
-                                    # results
-                                    best_net = torch.load(results_dir_split + '/theta_best_val_' + str(iii) + '.dat')
-                                    ###
-                                    #  删除
-                                    ###
-                                    cprint('c', '\nRESULTS:')
-                                    nb_parameters = best_net.get_nb_parameters()
-
-                                    best_net.set_mode_train(False)
-
+                                    tic = time.time()
                                     nb_samples = 0
-                                    cost_test = 0
-                                    rmse_test = 0
 
-                                    start = 0
-                                    for j, (x, y) in enumerate(testloader):
-                                        end = start + len(x)
-                                        cost, output[start:end,:,iii] = best_net.eval(x, y)
-                                        start = end
-                                        cost_test += cost
-                                        rmse_test += cost
+                                    for x, y in trainloader:
+                                        cost_pred = net.fit(x, y)
+
+                                        rmse_train[i] += cost_pred
+                                        pred_cost_train[i] += cost_pred
                                         nb_samples += len(x)
 
+                                    pred_cost_train[i] /= nb_samples
+                                    rmse_train[i] = (rmse_train[i] / nb_samples)**0.5
 
-                                    cost_test /= nb_samples
-                                    rmse_test = (rmse_test / nb_samples) ** 0.5
+                                    toc = time.time()
+                                    net.epoch = i
 
-                                    cost_test = cost_test.cpu().data.numpy()
-                                    rmse_test = rmse_test.cpu().data.numpy()
+                                    # ---- print
+                                    print("it %d/%d, Jtr_pred = %f, rmse = %f, " % (
+                                    i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
+                                    cprint('r', '   time: %f seconds\n' % (toc - tic))
 
-                                    # ###################
-                                    # cost_test *= y_stds
-                                    # rmse_test *= y_stds
-                                    # ###################
+                                    # ---- dev
+                                    if i % nb_its_dev == 0:
+                                        net.set_mode_train(False)
+                                        nb_samples = 0
+                                        for j, (x, y) in enumerate(valloader):
+                                            cost, out = net.eval(x, y)
 
-                                    best_cost_dev = np.min(cost_dev)
-                                    best_cost_train = np.min(pred_cost_train)
-                                    rmse_dev_min = rmse_dev[::nb_its_dev].min()
+                                            cost_dev[i] += cost
+                                            rmse_dev[i] += cost
+                                            nb_samples += len(x)
 
-                                    print('  cost_test: %f ' % (cost_test))
-                                    print('  rmse_test: %f' % (rmse_test))
+                                        cost_dev[i] /= nb_samples
+                                        rmse_dev[i] = (rmse_dev[i] / nb_samples)**0.5
 
-                                    print('  cost_dev: %f (cost_train %f)' % (best_cost_dev, best_cost_train))
-                                    print('  rmse_dev: %f' % (rmse_dev_min))
-                                    print('  nb_parameters: %d (%s)' % (nb_parameters, humansize(nb_parameters)))
-                                    print('  time_per_it: %fs\n' % (runtime_per_it))
+                                        cprint('g', '    Jdev = %f, err = %f\n' % (cost_dev[i], rmse_dev[i]))
 
-                                    # Storing validation results
-                                    with open(results_val_split, "a") as myfile:
-                                        myfile.write('Net_%d: rmse %f  \n' % (iii,rmse_dev_min * y_stds))
+                                        if rmse_dev[i] < best_rmse:
+                                            best_rmse = rmse_dev[i]
+                                            cprint('b', 'best val rmse')
+                                            net.save(results_dir_split + '/theta_best_val_' + str(iii) + '.dat')
 
-                                    # Storing testing results
-                                    with open(results_test_split, "a") as myfile:
-                                        myfile.write('Net_%d: rmse %f  \n' % (iii,rmse_test * y_stds))
+                                toc0 = time.time()
+                                runtime_per_it = (toc0 - tic0) / float(nb_epochs)
+                                cprint('r', '   average time: %f seconds\n' % runtime_per_it)
+                                ## ---------------------------------------------------------------------------------------------------------------------
+                                # results
+                                net.load(results_dir_split + '/theta_best_val_' + str(iii) + '.dat')
+                                ###
+                                #  删除
+                                ###
+                                cprint('c', '\nRESULTS:')
+                                nb_parameters = net.get_nb_parameters()
 
-                            rmse_test_split = F.mse_loss(output, y_test, reduction='mean')
+                                net.set_mode_train(False)
+
+                                nb_samples = 0
+                                cost_test = 0
+                                rmse_test = 0
+
+                                start = 0
+                                for j, (x, y) in enumerate(testloader):
+                                    end = start + len(x)
+                                    cost, out = net.eval(x, y)
+                                    output[start:end, :, iii] = out.cpu().numpy()
+                                    start = end
+                                    cost_test += cost
+                                    rmse_test += cost
+                                    nb_samples += len(x)
+
+
+                                cost_test /= nb_samples
+                                rmse_test = (rmse_test / nb_samples) ** 0.5
+
+                                cost_test = cost_test.cpu().data.numpy()
+                                rmse_test = rmse_test.cpu().data.numpy()
+
+                                # ###################
+                                # cost_test *= y_stds
+                                # rmse_test *= y_stds
+                                # ###################
+
+                                best_cost_dev = np.min(cost_dev)
+                                best_cost_train = np.min(pred_cost_train)
+                                rmse_dev_min = rmse_dev[::nb_its_dev].min()
+
+                                print('  cost_test: %f ' % (cost_test))
+                                print('  rmse_test: %f' % (rmse_test))
+
+                                print('  cost_dev: %f (cost_train %f)' % (best_cost_dev, best_cost_train))
+                                print('  rmse_dev: %f' % (rmse_dev_min))
+                                print('  nb_parameters: %d (%s)' % (nb_parameters, humansize(nb_parameters)))
+                                print('  time_per_it: %fs\n' % (runtime_per_it))
+
+                                # Storing validation results
+                                with open(results_val_split, "a") as myfile:
+                                    myfile.write('Net_%d: rmse %f  \n' % (iii,rmse_dev_min * y_stds))
+
+                                # Storing testing results
+                                with open(results_test_split, "a") as myfile:
+                                    myfile.write('Net_%d: rmse %f  \n' % (iii,rmse_test * y_stds))
+
+                            rmse_test_split = F.mse_loss(torch.tensor(np.mean(output,axis=2)), y_test, reduction='mean')
 
                             with open(results_test, "a") as myfile:
                                 myfile.write('N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
@@ -316,7 +322,10 @@ if __name__ == '__main__':
 
                             rmses.append(rmse_test_split)
 
+                            shutil.rmtree(results_dir_split)
+
                         rmses = np.array(rmses)
                         with open(results_file, "a") as myfile:
                             myfile.write('Overall: \n rmses %f +- %f (stddev)  \n' % (
                                 np.mean(rmses), np.std(rmses) / int(n_splits)))
+

@@ -249,7 +249,7 @@ class Bootstrap_Net_BH(BaseNet):
     #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
 
     def fit(self, x, y):
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
 
         self.optimizer.zero_grad()
 

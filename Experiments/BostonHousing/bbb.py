@@ -4,11 +4,9 @@ import os
 import sys
 
 curPath = os.path.abspath(os.path.dirname(__file__))
-print(curPath)
 rootPath = curPath
 for i in range(2):
     rootPath = os.path.split(rootPath)[0]
-print(rootPath)
 sys.path.append(rootPath)
 
 import numpy as np
@@ -24,7 +22,7 @@ from src.Bayes_By_Backprop_Local_Reparametrization.model import *
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 def _get_index_train_test_path(split_num, train = True):
     """
@@ -55,7 +53,7 @@ if __name__ == '__main__':
     n_samples = [3, 10]
     NTrainPoints = 364
     batch_size = 100
-    nb_epochs = 40
+    nb_epochs = 2
     log_interval = 1
 
     for prior in priors :
@@ -268,11 +266,11 @@ if __name__ == '__main__':
                             cprint('r', '   average time: %f seconds\n' % runtime_per_it)
                             ## ---------------------------------------------------------------------------------------------------------------------
                             # results
-                            best_net = torch.load(results_dir_split + '/theta_best_val_'+ str(split) + '.dat')
+                            net.load(results_dir_split + '/theta_best_val.dat')
                             cprint('c', '\nRESULTS:')
-                            nb_parameters = best_net.get_nb_parameters()
+                            nb_parameters = net.get_nb_parameters()
 
-                            best_net.set_mode_train(False)
+                            net.set_mode_train(False)
                             nb_samples = 0
                             cost_test = 0
                             rmse_test = 0
@@ -281,7 +279,7 @@ if __name__ == '__main__':
                             # start = 0
                             for j, (x, y) in enumerate(testloader):
                                 # end = len(x) + start
-                                cost, mse = best_net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                cost, mse = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
                                 cost_test += cost
                                 rmse_test += mse
                                 nb_samples += len(x)
