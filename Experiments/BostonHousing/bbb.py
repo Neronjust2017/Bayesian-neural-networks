@@ -49,20 +49,13 @@ if __name__ == '__main__':
     _DATA_DIRECTORY_PATH = './data/'
 
     priors = ['GMM_prior','Laplace_prior']
-    # prior_sigs = [1, 0.1, 0.05, 0.01]
-    # lrs = [1e-4, 1e-3]
-    # momentums = [0, 0.9]
-    # n_samples = [3, 10]
-    # NTrainPoints = 364
-    # batch_size = 100
-    # nb_epochs = 40
-    prior_sigs = [1,2]
+    prior_sigs = [1, 0.1, 0.05, 0.01]
     lrs = [1e-4, 1e-3]
-    momentums = [0]
-    n_samples = [3,2]
+    momentums = [0, 0.9]
+    n_samples = [3, 10]
     NTrainPoints = 364
     batch_size = 100
-    nb_epochs = 2
+    nb_epochs = 40
     log_interval = 1
 
     results = {}
