@@ -1,3 +1,5 @@
+import json
+
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
 from sklearn.datasets import load_boston
 import os
@@ -47,15 +49,23 @@ if __name__ == '__main__':
     _DATA_DIRECTORY_PATH = './data/'
 
     priors = ['GMM_prior','Laplace_prior']
-    prior_sigs = [1, 0.1, 0.05, 0.01]
+    # prior_sigs = [1, 0.1, 0.05, 0.01]
+    # lrs = [1e-4, 1e-3]
+    # momentums = [0, 0.9]
+    # n_samples = [3, 10]
+    # NTrainPoints = 364
+    # batch_size = 100
+    # nb_epochs = 40
+    prior_sigs = [1,2]
     lrs = [1e-4, 1e-3]
-    momentums = [0, 0.9]
-    n_samples = [3, 10]
+    momentums = [0]
+    n_samples = [3,2]
     NTrainPoints = 364
     batch_size = 100
-    nb_epochs = 40
+    nb_epochs = 2
     log_interval = 1
 
+    results = {}
     for prior in priors :
         for prior_sig in prior_sigs:
             for lr in lrs:
@@ -84,6 +94,7 @@ if __name__ == '__main__':
 
                         rmses = []
                         # rmse_stds = 0
+                        # best_mean_rmse = np.inf
 
                         n_splits = 5
 
@@ -430,6 +441,17 @@ if __name__ == '__main__':
                         with open(results_file, "a") as myfile:
                             myfile.write('Overall: \n rmses %f +- %f (stddev)  \n' % (
                                 np.mean(rmses), np.std(rmses)/int(n_splits)))
+
+                        s = 'Prior: ' + str(prior) + ' Prior_sigs: ' + str(prior_sig) + \
+                        ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' N_sample: ' + str(n_sample)
+
+                        results[s] = [np.mean(rmses), np.std(rmses)/int(n_splits)]
+
+    results_order = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
+    file = open('./bbb_results/results.txt', 'w')
+    file.writelines(json.dumps(results_order))
+    file.close()
+
 
 
 

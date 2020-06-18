@@ -1,3 +1,5 @@
+import json
+
 from sklearn.linear_model import LinearRegression,Lasso,Ridge
 from sklearn.datasets import load_boston
 import os
@@ -61,6 +63,7 @@ if __name__ == '__main__':
     nb_epochs = 40
     log_interval = 1
 
+    results = {}
     for n_net in n_nets :
         for subsample in subsamples:
             for lr in lrs:
@@ -352,10 +355,17 @@ if __name__ == '__main__':
                             plt.savefig(results_dir + '/split_' + str(split) + '_uncertainty.png',
                                         bbox_inches='tight')
 
-
-
                         rmses = np.array(rmses)
                         with open(results_file, "a") as myfile:
                             myfile.write('Overall: \n rmses %f +- %f (stddev)  \n' % (
                                 np.mean(rmses), np.std(rmses) / int(n_splits)))
 
+                        s = 'N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
+                        ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
+
+                        results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits)]
+
+    results_order = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
+    file = open('./ensemble_results/results.txt', 'w')
+    file.writelines(json.dumps(results_order))
+    file.close()
