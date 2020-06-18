@@ -45,12 +45,12 @@ if __name__ == '__main__':
 
     _DATA_DIRECTORY_PATH = './data/'
 
-    lrs = [1e-4]
-    momentums = [0.9]
-    n_samples = [3]
+    lrs = [1e-4, 1e-3, 1e-2]
+    momentums = [0.9, 0.99]
+    n_samples = [3, 10]
     NTrainPoints = 364
     batch_size = 100
-    nb_epochs = 2
+    nb_epochs = 40
     log_interval = 1
 
     for lr in lrs:
@@ -219,7 +219,7 @@ if __name__ == '__main__':
                             # start = 0
                             for j, (x, y) in enumerate(valloader):
                                 # end = len(x) + start
-                                cost, mse = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                cost, mse, _, _ = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
                                 # start = end
                                 cost_dev[i] += cost
                                 rmse_dev[i] += mse
@@ -256,11 +256,21 @@ if __name__ == '__main__':
                     cost_test = 0
                     rmse_test = 0
                     T = 1000
-                    # rmses_test = np.zeros((X_train.shape[0], outputs, T))
-                    # start = 0
+
+                    means = np.zeros((X_test.shape[0], outputs))
+                    stds = np.zeros((X_test.shape[0], outputs))
+
+                    start = 0
                     for j, (x, y) in enumerate(testloader):
-                        # end = len(x) + start
-                        cost, mse = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                        end = len(x) + start
+                        cost, mse, mean, std = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                        if use_cuda:
+                            mean = mean.cpu()
+                            std = std.cpu()
+                        means[start:end, :] = mean
+                        stds[start:end, :] = std
+                        start = end
+
                         cost_test += cost
                         rmse_test += mse
                         nb_samples += len(x)
@@ -299,6 +309,9 @@ if __name__ == '__main__':
                     np.save(results_dir_split + '/cost_dev.npy', cost_dev)
                     np.save(results_dir_split + '/rmse_train.npy', rmse_train)
                     np.save(results_dir_split + '/rmse_dev.npy', rmse_dev)
+
+                    np.save(results_dir_split + '/means.npy', means)
+                    np.save(results_dir_split + '/stds.npy', stds)
 
                     # Storing validation results
                     with open(results_val, "a") as myfile:
@@ -367,6 +380,31 @@ if __name__ == '__main__':
                         item.set_fontsize(textsize)
                         item.set_weight('normal')
                     plt.savefig(results_dir_split + '/rmse.png', bbox_extra_artists=(lgd,), box_inches='tight')
+
+                    means = means.reshape((means.shape[0],))
+                    stds = means.reshape((stds.shape[0],))
+
+                    c = ['#1f77b4', '#ff7f0e']
+                    ind = np.arange(0, len(y_test))
+                    plt.figure()
+                    fig, ax1 = plt.subplots()
+                    plt.scatter(ind, y_test, color='black', alpha=0.5)
+                    ax1.plot(ind, means, 'r')
+                    plt.fill_between(ind, means - 3 * stds, means + 3 * stds,
+                                     alpha=0.25, label='99.7% Confidence')
+                    plt.fill_between(ind, means - 2 * stds, means + 2 * stds,
+                                     alpha=0.25, label='95% Confidence')
+                    plt.fill_between(ind, means - stds, means + stds,
+                                     alpha=0.25, label='68% Confidence')
+                    ax1.set_ylabel('prediction')
+                    plt.xlabel('test points')
+                    plt.grid(b=True, which='major', color='k', linestyle='-')
+                    plt.grid(b=True, which='minor', color='k', linestyle='--')
+                    ax = plt.gca()
+                    plt.title('Uncertainty')
+
+                    plt.savefig(results_dir_split + '/uncertainty.png', bbox_extra_artists=(lgd,),
+                                bbox_inches='tight')
 
                 rmses = np.array(rmses)
                 with open(results_file, "a") as myfile:

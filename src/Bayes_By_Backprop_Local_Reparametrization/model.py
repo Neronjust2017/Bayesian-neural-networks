@@ -555,7 +555,8 @@ class BBP_Bayes_Net_LR_BH(BaseNet):
 
         mean = torch.mean(outputs, dim=2)
         mse = F.mse_loss(mean, y, reduction='sum')
+        std = torch.std(outputs, dim=2)
 
-        return loss.data, mse.data
+        return loss.data, mse.data, mean.data, std.data
 
 

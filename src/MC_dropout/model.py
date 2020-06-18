@@ -293,9 +293,10 @@ class MC_drop_net_BH(BaseNet):
             loss /= samples
 
         mean = torch.mean(outputs, dim=2)
+        std = torch.std(outputs, dim=2)
         mse = F.mse_loss(mean, y, reduction='sum')
 
-        return loss.data, mse.data
+        return loss.data, mse.data, mean.data, std.data
 
     def sample_eval(self, x, y, Nsamples, logits=True, train=False):
         x, y = to_variable(var=(x, y), cuda=self.cuda)

@@ -310,7 +310,10 @@ if __name__ == '__main__':
                                 with open(results_test_split, "a") as myfile:
                                     myfile.write('Net_%d: rmse %f  \n' % (iii,rmse_test * y_stds))
 
-                            rmse_test_split = F.mse_loss(torch.tensor(np.mean(output,axis=2)), y_test, reduction='mean')
+                            means = np.mean(output, axis=2)
+                            stds = np.std(output, axis=2)
+
+                            rmse_test_split = F.mse_loss(torch.tensor(means), y_test, reduction='mean')
 
                             with open(results_test, "a") as myfile:
                                 myfile.write('N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
@@ -323,6 +326,33 @@ if __name__ == '__main__':
                             rmses.append(rmse_test_split*y_stds)
 
                             shutil.rmtree(results_dir_split)
+
+                            means = means.reshape((means.shape[0],))
+                            stds = means.reshape((stds.shape[0],))
+
+                            c = ['#1f77b4', '#ff7f0e']
+                            ind = np.arange(0, len(y_test))
+                            plt.figure()
+                            fig, ax1 = plt.subplots()
+                            plt.scatter(ind, y_test, color='black', alpha=0.5)
+                            ax1.plot(ind, means, 'r')
+                            plt.fill_between(ind, means - 3 * stds, means + 3 * stds,
+                                             alpha=0.25, label='99.7% Confidence')
+                            plt.fill_between(ind, means - 2 * stds, means + 2 * stds,
+                                             alpha=0.25, label='95% Confidence')
+                            plt.fill_between(ind, means - stds, means + stds,
+                                             alpha=0.25, label='68% Confidence')
+                            ax1.set_ylabel('prediction')
+                            plt.xlabel('test points')
+                            plt.grid(b=True, which='major', color='k', linestyle='-')
+                            plt.grid(b=True, which='minor', color='k', linestyle='--')
+                            ax = plt.gca()
+                            plt.title('Uncertainty')
+
+                            plt.savefig(results_dir + '/split_' + str(split) + '_uncertainty.png',
+                                        bbox_inches='tight')
+
+
 
                         rmses = np.array(rmses)
                         with open(results_file, "a") as myfile:

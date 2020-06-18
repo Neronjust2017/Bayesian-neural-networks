@@ -356,8 +356,9 @@ class VD_Bayes_Net_BH(BaseNet):
             loss = mlpdw
 
         mean = torch.mean(outputs, dim=2)
+        std = torch.std(outputs, dim=2)
         mse = F.mse_loss(mean, y, reduction='sum')
 
-        return loss.data, mse.data
+        return loss.data, mse.data, mean.data, std.data
 
 
