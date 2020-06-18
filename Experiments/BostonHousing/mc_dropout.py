@@ -45,16 +45,16 @@ if __name__ == '__main__':
 
     _DATA_DIRECTORY_PATH = './data/'
 
-    pdrops = [0.5, 0.1]
-    taus = [1.0]
+    pdrops = [0.005, 0.01, 0.05, 0.1]
+    taus = [0.1, 0.15, 0.2]
     lengthscales = [1e-2]
-    lrs = [1e-4]
+    lrs = [1e-3]
     momentums = [0.9]
-    Ts = [3]
+    Ts = [1000]
 
     NTrainPoints = 364
-    batch_size = 100
-    nb_epochs = 2
+    batch_size = 128
+    nb_epochs = 40
     log_interval = 1
 
     for pdrop in pdrops :
@@ -76,7 +76,7 @@ if __name__ == '__main__':
                             rmses = []
                             # rmse_stds = 0
 
-                            n_splits = 5
+                            n_splits = 10
 
                             for split in range(int(n_splits)):
 

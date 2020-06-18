@@ -6,7 +6,8 @@ import torch.nn as nn
 
 
 def MC_dropout(act_vec, p=0.5, mask=True):
-    return F.dropout(act_vec, p=p, training=mask, inplace=True)
+    # return F.dropout(act_vec, p=p, training=mask, inplace=True)
+    return F.dropout(act_vec, p=p, training=mask, inplace=False)
 
 class Linear_1L(nn.Module):
     def __init__(self, input_dim, output_dim, n_hid, pdrop):
@@ -35,9 +36,8 @@ class Linear_1L(nn.Module):
         x = MC_dropout(x, p=self.pdrop, mask=mask)
         # -----------------
         x = self.fc1(x)
-        x = MC_dropout(x, p=self.pdrop, mask=mask)
-        # -----------------
         x = self.act(x)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
         # -----------------
         y = self.fc2(x)
 

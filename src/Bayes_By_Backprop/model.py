@@ -126,6 +126,62 @@ class BayesConv_Normalq(nn.Module):
             lpw = self.prior.loglike(W) + self.prior.loglike(b)
             return output, lqw, lpw
 
+class bayes_linear_1L(nn.Module):
+    """1 hidden layer Bayes By Backprop (VI) Network"""
+    def __init__(self, input_dim, output_dim, n_hid, prior_instance):
+        super(bayes_linear_1L, self).__init__()
+
+        # prior_instance = isotropic_gauss_prior(mu=0, sigma=0.1)
+        # prior_instance = spike_slab_2GMM(mu1=0, mu2=0, sigma1=0.135, sigma2=0.001, pi=0.5)
+        # prior_instance = isotropic_gauss_prior(mu=0, sigma=0.1)
+        self.prior_instance = prior_instance
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        self.bfc1 = BayesLinear_Normalq(input_dim, n_hid, self.prior_instance)
+        self.bfc2 = BayesLinear_Normalq(n_hid, output_dim, self.prior_instance)
+
+        # choose your non linearity
+        # self.act = nn.Tanh()
+        # self.act = nn.Sigmoid()
+        self.act = nn.ReLU(inplace=True)
+        # self.act = nn.ELU(inplace=True)
+        # self.act = nn.SELU(inplace=True)
+
+    def forward(self, x, sample=False):
+        tlqw = 0
+        tlpw = 0
+
+        x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        # -----------------
+        x, lqw, lpw = self.bfc1(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x = self.act(x)
+        # -----------------
+        y, lqw, lpw = self.bfc2(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+
+        return y, tlqw, tlpw
+
+    def sample_predict(self, x, Nsamples):
+        """Used for estimating the data's likelihood by approximately marginalising the weights with MC"""
+        # Just copies type from x, initializes new vector
+        predictions = x.data.new(Nsamples, x.shape[0], self.output_dim)
+        tlqw_vec = np.zeros(Nsamples)
+        tlpw_vec = np.zeros(Nsamples)
+
+        for i in range(Nsamples):
+            y, tlqw, tlpw = self.forward(x, sample=True)
+            predictions[i] = y
+            tlqw_vec[i] = tlqw
+            tlpw_vec[i] = tlpw
+
+        return predictions, tlqw_vec, tlpw_vec
+
 class bayes_linear_2L(nn.Module):
     """2 hidden layer Bayes By Backprop (VI) Network"""
     def __init__(self, input_dim, output_dim, n_hid, prior_instance):
@@ -574,9 +630,8 @@ class BBP_Bayes_Net_BH(BaseNet):
         if self.cuda:
             torch.cuda.manual_seed(42)
 
-        # self.model = bayes_linear_4L(input_dim=self.channels_in * self.side_in * self.side_in,
-        #                              output_dim=self.classes, n_hid=self.nhid, prior_instance=self.prior_instance)
-        self.model = BayesLinear_Normalq(n_in=self.input_dim, n_out=self.output_dim, prior_class=self.prior_instance)
+        self.model = bayes_linear_1L(input_dim=self.input_dim,output_dim=self.output_dim, n_hid=self.nhid, prior_instance=self.prior_instance)
+        # self.model = BayesLinear_Normalq(n_in=self.input_dim, n_out=self.output_dim, prior_class=self.prior_instance)
 
         if self.cuda:
             self.model.cuda()
