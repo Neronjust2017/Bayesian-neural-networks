@@ -43,8 +43,8 @@ if __name__ == '__main__':
     # Data
     boston = load_boston()
     df = DataFrame(boston.data,columns=boston.feature_names)
-    X = boston.data  # 样本的特征值
-    Y = boston.target  # 样本的目标值
+    X = boston.data
+    Y = boston.target
 
     _DATA_DIRECTORY_PATH = './data/'
 
@@ -53,11 +53,11 @@ if __name__ == '__main__':
     # weight_decays = [0]
     # n_nets = [2, 200]
     # momentums = [0, 0.9]
-    subsamples = [0.8]
-    lrs = [1e-4]
-    weight_decays = [1e-6]
-    n_nets = [10, 50]
-    momentums = [0]
+    subsamples = [0.8, 0.9]
+    lrs = [1e-4, 1e-3]
+    weight_decays = [1e-6, 1e-4]
+    n_nets = [10, 50, 100]
+    momentums = [0, 0.9]
 
     batch_size = 100
     nb_epochs = 40
@@ -79,6 +79,8 @@ if __name__ == '__main__':
                         mkdir(results_dir)
 
                         rmses = []
+                        picps = []
+                        mpiws = []
 
                         n_splits = 15
 
@@ -171,6 +173,12 @@ if __name__ == '__main__':
                                     testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                                                              shuffle=False, pin_memory=True,
                                                                              num_workers=3)
+                                    # trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                    #                                           shuffle=False, sampler=sampler)
+                                    # valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                    #                                         shuffle=False)
+                                    # testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                    #                                          shuffle=False)
                                 else:
                                     trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                                                               shuffle=False, pin_memory=False,
@@ -228,8 +236,8 @@ if __name__ == '__main__':
                                     net.epoch = i
 
                                     # ---- print
-                                    print("it %d/%d, Jtr_pred = %f, rmse = %f, " % (
-                                    i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
+                                    print("it %d/%d, Jtr_pred = %f, rmse = %f, " %
+                                          (i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
                                     cprint('r', '   time: %f seconds\n' % (toc - tic))
 
                                     # ---- dev
@@ -316,22 +324,33 @@ if __name__ == '__main__':
                             means = np.mean(output, axis=2)
                             stds = np.std(output, axis=2)
 
-                            rmse_test_split = F.mse_loss(torch.tensor(means), y_test, reduction='mean')
+                            y_L = means - 2 * stds
+                            y_U = means + 2 * stds
+                            y_true_test = y_test.numpy()
+                            u = np.maximum(0, np.sign(y_U - y_true_test))
+                            l = np.maximum(0, np.sign(y_true_test - y_L))
+                            PICP = np.mean(np.multiply(u, l))
+                            MPIW = np.mean(y_U - y_L)
+
+                            rmse_test_split = F.mse_loss(torch.tensor(means), y_test.double(), reduction='mean')
+                            rmse_test_split = rmse_test_split.cpu().data.numpy()
 
                             with open(results_test, "a") as myfile:
                                 myfile.write('N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
                               ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay) + ' :: ')
-                                myfile.write('rmse %f ' % (rmse_test_split * y_stds) + '\n')
+                                myfile.write('rmse %f PICP %f MPIW %f' % (rmse_test_split*y_stds, PICP, MPIW) + '\n')
 
                             with open(results_file, "a") as myfile:
-                                myfile.write('rmse %f  \n' % (rmse_test_split * y_stds))
+                                myfile.write('rmse %f PICP %f MPIW %f' % (rmse_test_split*y_stds, PICP, MPIW) + '\n')
 
                             rmses.append(rmse_test_split*y_stds)
+                            picps.append(PICP)
+                            mpiws.append(MPIW)
 
                             shutil.rmtree(results_dir_split)
 
                             means = means.reshape((means.shape[0],))
-                            stds = means.reshape((stds.shape[0],))
+                            stds = stds.reshape((stds.shape[0],))
 
                             c = ['#1f77b4', '#ff7f0e']
                             ind = np.arange(0, len(y_test))
@@ -356,16 +375,30 @@ if __name__ == '__main__':
                                         bbox_inches='tight')
 
                         rmses = np.array(rmses)
+                        picps = np.array(picps)
+                        mpiws = np.array(mpiws)
+
                         with open(results_file, "a") as myfile:
-                            myfile.write('Overall: \n rmses %f +- %f (stddev)  \n' % (
-                                np.mean(rmses), np.std(rmses) / int(n_splits)))
+                            myfile.write('Overall: \n rmses %f +- %f (stddev) PICP %f MPIW %f\n' % (
+                                np.mean(rmses), np.std(rmses) / int(n_splits), np.mean(picps), np.mean(mpiws)))
 
                         s = 'N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
                         ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
 
-                        results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits)]
+                        results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits), np.mean(picps), np.mean(mpiws)]
 
-    results_order = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
-    file = open('./ensemble_results/results.txt', 'w')
-    file.writelines(json.dumps(results_order))
-    file.close()
+    results_order_rmse = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
+    for i in range(len(results_order_rmse)):
+        with open('./ensemble_results/results_rmse.txt', 'a') as f:
+            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f'
+                    % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2], results_order_rmse[i][1][3],))
+            f.write('\n')
+    results_order_picp = sorted(results.items(), key=lambda x: x[1][2], reverse=True)
+    for i in range(len(results_order_picp)):
+        with open('./ensemble_results/results_picp.txt', 'a') as f:
+            f.write(str(results_order_picp[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f'
+                    % (results_order_picp[i][1][0], results_order_picp[i][1][1], results_order_picp[i][1][2], results_order_picp[i][1][3],))
+            f.write('\n')
+    # file = open('./ensemble_results/results.txt', 'w')
+    # file.writelines(json.dumps(results_order))
+    # file.close()

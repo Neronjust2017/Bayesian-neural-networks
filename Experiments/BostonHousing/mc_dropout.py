@@ -23,7 +23,7 @@ from src.MC_dropout.model import *
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 def _get_index_train_test_path(split_num, train = True):
     """
@@ -42,15 +42,15 @@ if __name__ == '__main__':
     # Data
     boston = load_boston()
     df = DataFrame(boston.data,columns=boston.feature_names)
-    X = boston.data  # 样本的特征值
-    Y = boston.target  # 样本的目标值
+    X = boston.data
+    Y = boston.target
 
     _DATA_DIRECTORY_PATH = './data/'
 
     pdrops = [0.005, 0.01, 0.05, 0.1]
     taus = [0.1, 0.15, 0.2]
-    lengthscales = [1e-2]
-    lrs = [1e-3]
+    lengthscales = [1e-2, 1e-1, 1, 10]
+    lrs = [1e-3, 1e-4]
     momentums = [0.9]
     Ts = [1000]
 
@@ -68,18 +68,22 @@ if __name__ == '__main__':
                         for momentum in momentums:
                     
                             print('Grid search step: Pdrop: ' + str(pdrop) + ' Tau: ' + str(tau) + \
-                            ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' T: ' + str(T))
+                            ' Lengthscale: ' + str(lengthscale) + ' Lr: ' + str(lr) + ' Momentum: ' +
+                            str(momentum) + ' T: ' + str(T))
 
                             results_dir = './mc_dropout_results/Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + \
-                            '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_T_' + str(T)
+                            ' Lengthscale: ' + str(lengthscale) + '_Lr_' + str(lr) + '_Momentum_' + \
+                            str(momentum) + '_T_' + str(T)
 
                             results_file = results_dir + '_results.txt'
                             mkdir(results_dir)
 
                             rmses = []
+                            picps = []
+                            mpiws = []
                             # rmse_stds = 0
 
-                            n_splits = 10
+                            n_splits = 15
 
                             for split in range(int(n_splits)):
 
@@ -280,6 +284,14 @@ if __name__ == '__main__':
                                     rmse_test += mse
                                     nb_samples += len(x)
 
+                                y_L = means - 2 * stds
+                                y_U = means + 2 * stds
+                                y_true_test = y_test.numpy()
+                                u = np.maximum(0, np.sign(y_U - y_true_test))
+                                l = np.maximum(0, np.sign(y_true_test - y_L))
+                                PICP = np.mean(np.multiply(u, l))
+                                MPIW = np.mean(y_U - y_L)
+
                                 cost_test /= nb_samples
                                 rmse_test = (rmse_test / nb_samples)**0.5
                                 # rmse_std_test = np.std(np.mean(rmses_test))
@@ -293,6 +305,8 @@ if __name__ == '__main__':
                                 # ###################
 
                                 rmses.append(rmse_test*y_stds)
+                                picps.append(PICP)
+                                mpiws.append(MPIW)
                                 # rmse_stds += rmse_std_test
 
                                 best_cost_dev = np.min(cost_dev)
@@ -319,17 +333,19 @@ if __name__ == '__main__':
                                 # Storing validation results
                                 with open(results_val, "a") as myfile:
                                     myfile.write('Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + \
-                            '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_T_' + str(T) + ' :: ')
+                                    ' Lengthscale: ' + str(lengthscale) + '_Lr_' + str(lr) + '_Momentum_' + str(momentum) +
+                                    '_T_' + str(T) + ' :: ')
                                     myfile.write('rmse %f ' % (rmse_dev_min*y_stds) + '\n')
 
                                 # Storing testing results
                                 with open(results_test, "a") as myfile:
                                     myfile.write('Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + \
-                                '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_T_' + str(T) + ' :: ')
-                                    myfile.write('rmse %f ' % (rmse_test*y_stds) + '\n')
+                                    ' Lengthscale: ' + str(lengthscale) + '_Lr_' + str(lr) + '_Momentum_' + str(momentum) +
+                                    '_T_' + str(T) + ' :: ')
+                                    myfile.write('rmse %f PICP %f MPIW %f' % (rmse_test*y_stds, PICP, MPIW) + '\n')
 
                                 with open(results_file, "a") as myfile:
-                                    myfile.write('rmse %f  \n' % (rmse_test*y_stds))
+                                    myfile.write('rmse %f PICP %f MPIW %f' % (rmse_test*y_stds, PICP, MPIW) + '\n')
 
                                 ## ---------------------------------------------------------------------------------------------------------------------
                                 # fig cost vs its
@@ -372,7 +388,7 @@ if __name__ == '__main__':
                                 plt.savefig(results_dir_split + '/rmse.png', bbox_extra_artists=(lgd,), box_inches='tight')
 
                                 means = means.reshape((means.shape[0],))
-                                stds = means.reshape((stds.shape[0],))
+                                stds = stds.reshape((stds.shape[0],))
 
                                 c = ['#1f77b4', '#ff7f0e']
                                 ind = np.arange(0, len(y_test))
@@ -397,16 +413,30 @@ if __name__ == '__main__':
                                             bbox_inches='tight')
 
                             rmses = np.array(rmses)
+                            picps = np.array(picps)
+                            mpiws = np.array(mpiws)
+
                             with open(results_file, "a") as myfile:
-                                myfile.write('Overall: \n rmses %f +- %f (stddev)  \n' % (
-                                    np.mean(rmses), np.std(rmses)/int(n_splits)))
+                                myfile.write('Overall: \n rmses %f +- %f (stddev) PICP %f MPIW %f\n' % (
+                                    np.mean(rmses), np.std(rmses) / int(n_splits), np.mean(picps), np.mean(mpiws)))
 
                             s = 'Pdrop: ' + str(pdrop) + ' Tau: ' + str(tau) + \
-                            ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' T: ' + str(T)
+                            ' Lengthscale: ' + str(lengthscale) + ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' T: ' + str(T)
 
-                            results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits)]
+                            results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits), np.mean(picps), np.mean(mpiws)]
 
-    results_order = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
-    file = open('./mc_dropout_results/results.txt', 'w')
-    file.writelines(json.dumps(results_order))
-    file.close()
+    results_order_rmse = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
+    for i in range(len(results_order_rmse)):
+        with open('./mc_dropout_results/results_rmse.txt', 'a') as f:
+            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f'
+                    % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2], results_order_rmse[i][1][3],))
+            f.write('\n')
+    results_order_picp = sorted(results.items(), key=lambda x: x[1][2], reverse=True)
+    for i in range(len(results_order_picp)):
+        with open('./mc_dropout_results/results_picp.txt', 'a') as f:
+            f.write(str(results_order_picp[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f'
+                    % (results_order_picp[i][1][0], results_order_picp[i][1][1], results_order_picp[i][1][2], results_order_picp[i][1][3],))
+            f.write('\n')
+    # file = open('./mc_dropout_results/results.txt', 'w')
+    # file.writelines(json.dumps(results_order))
+    # file.close()

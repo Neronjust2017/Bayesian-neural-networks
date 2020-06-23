@@ -44,8 +44,8 @@ if __name__ == '__main__':
     # Data
     boston = load_boston()
     df = DataFrame(boston.data,columns=boston.feature_names)
-    X = boston.data  # 样本的特征值
-    Y = boston.target  # 样本的目标值
+    X = boston.data
+    Y = boston.target
 
     _DATA_DIRECTORY_PATH = './data/'
 
@@ -76,20 +76,20 @@ if __name__ == '__main__':
     # out_biases = [3., -3.]  # chose biases for output layer (for gauss_like is overwritten to 0,1)
     # activation = 'relu'  # NN activation fns - tanh relu
 
-    subsamples = [0.8]
-    lrs = [0.03]
-    alphas = [0.05]     # data points captured = (1 - alpha)
-    loss_types = ['qd_soft']    # loss type to train on - qd_soft mve mse (mse=simple point prediction)
-    censor_Rs = [False]   # 暂时没用
+    subsamples = [0.8, 0.9]
+    lrs = [0.03, 0.003]
+    alphas = [0.05, 0.10, 0.01]     # data points captured = (1 - alpha)
+    loss_types = ['qd_soft', 'qd_hard']    # loss type to train on - qd_soft mve mse (mse=simple point prediction)
+    censor_Rs = [False]
     type_ins = ["pred_intervals"]
-    softens = [160.]    # hyper param for QD_soft
-    lambda_ins = [5.]
-    sigma_ins = [0.4]   # initialise std dev of NN weights
+    softens = [160., 500., 50.]    # hyper param for QD_soft
+    lambda_ins = [1., 5., 10.]
+    sigma_ins = [0.1, 0.4]   # initialise std dev of NN weights
     bias_rands = [False]
     out_biases = [[3.,-3.]] # chose biases for output layer (for mve is overwritten to 0,1)
     weight_decays = [1e-6]
-    n_nets = [10]
-    momentums = [0]
+    n_nets = [10, 100]
+    momentums = [0, 0.9]
 
     lube_perc = 90  # if model uncertainty method = perc - 50 to 100
     perc_or_norm = 'norm'   # model uncertainty method - perc norm (paper uses norm)
@@ -152,7 +152,7 @@ if __name__ == '__main__':
 
                                                             results_splits = []
 
-                                                            n_splits = 10
+                                                            n_splits = 15
 
                                                             for split in range(int(n_splits)):
                                                                 results_dir_split = results_dir + '/split_' + str(split)
@@ -211,8 +211,8 @@ if __name__ == '__main__':
                                                                 inputs = 13
                                                                 outputs = 2
 
-                                                                results_val = './bbb_results/results_val_split_' + str(split) + '.txt'
-                                                                results_test = './bbb_results/results_test_split_' + str(split) + '.txt'
+                                                                results_val = './qd_ensemble_results/results_val_split_' + str(split) + '.txt'
+                                                                results_test = './qd_ensemble_results/results_test_split_' + str(split) + '.txt'
 
                                                                 ###
                                                                 y_pred_all = np.zeros((n_net, x_test.shape[0], outputs))
@@ -237,13 +237,13 @@ if __name__ == '__main__':
                                                                     if use_cuda:
                                                                         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                                                                                                   shuffle=False, pin_memory=True,
-                                                                                                                  num_workers=0, sampler=sampler)
+                                                                                                                  num_workers=3, sampler=sampler)
                                                                         valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
                                                                                                                 shuffle=False, pin_memory=True,
-                                                                                                                num_workers=0)
+                                                                                                                num_workers=3)
                                                                         testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
                                                                                                                  shuffle=False, pin_memory=True,
-                                                                                                                 num_workers=0)
+                                                                                                                 num_workers=3)
                                                                     else:
                                                                         trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
                                                                                                                   shuffle=False, pin_memory=False,
@@ -549,17 +549,30 @@ if __name__ == '__main__':
                                                             results_splits = np.array(results_splits)
 
                                                             means = np.mean(results_splits, axis=0)
-
+                                                            stds = np.std(results_splits[:, 1])
+                                                            
                                                             with open(results_file, "a") as myfile:
-                                                                myfile.write('Overall: \n mse %f rmse %f PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
-                                                                    % ( means[0], means[1], means[2], means[3], means[4], means[5], means[6], means[7]) + '\n')
+                                                                myfile.write('Overall: \n rmse %f +- %f (stddev) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                                                                    % ( means[1], stds, means[2], means[3], means[4], means[5], means[6], means[7]) + '\n')
 
-                                                            # s = 'N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
-                                                            # ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
-                                                            #
-                                                            # results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits)]
+                                                            s = 'N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
+                                                            ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
 
-    # results_order = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
-    # file = open('./qd_ensemble_results/results.txt', 'w')
-    # file.writelines(json.dumps(results_order))
-    # file.close()
+                                                            results[s] = [means[1], stds, means[2], means[3], means[4], means[5], means[6], means[7]]
+
+    results_order_rmse = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
+    for i in range(len(results_order_rmse)):
+        with open('./qd_ensemble_results/results_rmse.txt', 'a') as f:
+            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                    % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2],
+                       results_order_rmse[i][1][3], results_order_rmse[i][1][4], results_order_rmse[i][1][5],
+                       results_order_rmse[i][1][6], results_order_rmse[i][1][7]))
+            f.write('\n')
+    results_order_picp = sorted(results.items(), key=lambda x: x[1][2], reverse=True)
+    for i in range(len(results_order_picp)):
+        with open('./qd_ensemble_results/results_picp.txt', 'a') as f:
+            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                    % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2],
+                       results_order_rmse[i][1][3], results_order_rmse[i][1][4], results_order_rmse[i][1][5],
+                       results_order_rmse[i][1][6], results_order_rmse[i][1][7]))
+            f.write('\n')
