@@ -1,7 +1,0 @@
-rmse 3.562541  
-rmse 3.932534  
-rmse 4.248352  
-rmse 5.201212  
-rmse 7.202114  
-Overall: 
- rmses 4.829351 +- 0.260997 (stddev)  

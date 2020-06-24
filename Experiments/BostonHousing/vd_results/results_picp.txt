@@ -1,0 +1,12 @@
+Lr: 0.001 Momentum: 0 N_sample: 10 RMSE: 3.799233 +- 0.070382 (stddev) PICP 0.858824 MPIW 1.027462
+Lr: 0.001 Momentum: 0.9 N_sample: 10 RMSE: 3.799233 +- 0.070382 (stddev) PICP 0.858824 MPIW 1.027462
+Lr: 0.001 Momentum: 0 N_sample: 3 RMSE: 3.847590 +- 0.075205 (stddev) PICP 0.823529 MPIW 0.985537
+Lr: 0.001 Momentum: 0.9 N_sample: 3 RMSE: 3.847590 +- 0.075205 (stddev) PICP 0.823529 MPIW 0.985537
+Lr: 0.001 Momentum: 0 N_sample: 100 RMSE: 3.842600 +- 0.070842 (stddev) PICP 0.820915 MPIW 0.992953
+Lr: 0.001 Momentum: 0.9 N_sample: 100 RMSE: 3.842600 +- 0.070842 (stddev) PICP 0.820915 MPIW 0.992953
+Lr: 0.0001 Momentum: 0 N_sample: 100 RMSE: 4.089958 +- 0.074830 (stddev) PICP 0.308497 MPIW 0.263556
+Lr: 0.0001 Momentum: 0.9 N_sample: 100 RMSE: 4.089958 +- 0.074830 (stddev) PICP 0.308497 MPIW 0.263556
+Lr: 0.0001 Momentum: 0 N_sample: 10 RMSE: 4.089990 +- 0.074734 (stddev) PICP 0.307190 MPIW 0.263328
+Lr: 0.0001 Momentum: 0.9 N_sample: 10 RMSE: 4.089990 +- 0.074734 (stddev) PICP 0.307190 MPIW 0.263328
+Lr: 0.0001 Momentum: 0 N_sample: 3 RMSE: 4.090480 +- 0.074857 (stddev) PICP 0.305882 MPIW 0.263077
+Lr: 0.0001 Momentum: 0.9 N_sample: 3 RMSE: 4.090480 +- 0.074857 (stddev) PICP 0.305882 MPIW 0.263077

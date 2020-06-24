@@ -1,12 +1,96 @@
-Pdrop_0.005_Tau_0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 5.231317 
-Pdrop_0.005_Tau_0.15_Lr_0.001_Momentum_0.9_T_1000 :: rmse 5.231316 
-Pdrop_0.005_Tau_0.2_Lr_0.001_Momentum_0.9_T_1000 :: rmse 5.231316 
-Pdrop_0.01_Tau_0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 5.177533 
-Pdrop_0.01_Tau_0.15_Lr_0.001_Momentum_0.9_T_1000 :: rmse 5.177533 
-Pdrop_0.01_Tau_0.2_Lr_0.001_Momentum_0.9_T_1000 :: rmse 5.177533 
-Pdrop_0.05_Tau_0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.845143 
-Pdrop_0.05_Tau_0.15_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.845143 
-Pdrop_0.05_Tau_0.2_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.845143 
-Pdrop_0.1_Tau_0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.871836 
-Pdrop_0.1_Tau_0.15_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.871836 
-Pdrop_0.1_Tau_0.2_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.871836 
+Pdrop_0.005_Tau_0.1 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.164001 PICP 0.352941 MPIW 0.246019
+Pdrop_0.005_Tau_0.1 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922411 PICP 0.372549 MPIW 0.237733
+Pdrop_0.005_Tau_0.1 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.164733 PICP 0.352941 MPIW 0.245984
+Pdrop_0.005_Tau_0.1 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922408 PICP 0.372549 MPIW 0.237731
+Pdrop_0.005_Tau_0.1 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.120307 PICP 0.333333 MPIW 0.244175
+Pdrop_0.005_Tau_0.1 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.921455 PICP 0.372549 MPIW 0.237597
+Pdrop_0.005_Tau_0.1 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.365697 PICP 0.313725 MPIW 0.220761
+Pdrop_0.005_Tau_0.1 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.899838 PICP 0.392157 MPIW 0.224410
+Pdrop_0.005_Tau_0.15 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.164003 PICP 0.352941 MPIW 0.246019
+Pdrop_0.005_Tau_0.15 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922411 PICP 0.372549 MPIW 0.237733
+Pdrop_0.005_Tau_0.15 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.129459 PICP 0.352941 MPIW 0.245180
+Pdrop_0.005_Tau_0.15 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922409 PICP 0.372549 MPIW 0.237732
+Pdrop_0.005_Tau_0.15 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.107095 PICP 0.313725 MPIW 0.243645
+Pdrop_0.005_Tau_0.15 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922242 PICP 0.372549 MPIW 0.237630
+Pdrop_0.005_Tau_0.15 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.398730 PICP 0.274510 MPIW 0.220558
+Pdrop_0.005_Tau_0.15 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911662 PICP 0.392157 MPIW 0.228646
+Pdrop_0.005_Tau_0.2 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.164003 PICP 0.352941 MPIW 0.246019
+Pdrop_0.005_Tau_0.2 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922411 PICP 0.372549 MPIW 0.237733
+Pdrop_0.005_Tau_0.2 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.129520 PICP 0.352941 MPIW 0.245180
+Pdrop_0.005_Tau_0.2 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922409 PICP 0.372549 MPIW 0.237732
+Pdrop_0.005_Tau_0.2 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.180120 PICP 0.352941 MPIW 0.245138
+Pdrop_0.005_Tau_0.2 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.922295 PICP 0.372549 MPIW 0.237655
+Pdrop_0.005_Tau_0.2 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.375200 PICP 0.352941 MPIW 0.224004
+Pdrop_0.005_Tau_0.2 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.913782 PICP 0.392157 MPIW 0.230792
+Pdrop_0.01_Tau_0.1 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.642253 PICP 0.529412 MPIW 0.362047
+Pdrop_0.01_Tau_0.1 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911366 PICP 0.431373 MPIW 0.329600
+Pdrop_0.01_Tau_0.1 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.312230 PICP 0.607843 MPIW 0.338248
+Pdrop_0.01_Tau_0.1 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911362 PICP 0.431373 MPIW 0.329598
+Pdrop_0.01_Tau_0.1 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.340260 PICP 0.568627 MPIW 0.336436
+Pdrop_0.01_Tau_0.1 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.908242 PICP 0.431373 MPIW 0.329361
+Pdrop_0.01_Tau_0.1 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.421196 PICP 0.411765 MPIW 0.316330
+Pdrop_0.01_Tau_0.1 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.896538 PICP 0.450980 MPIW 0.311741
+Pdrop_0.01_Tau_0.15 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.642253 PICP 0.529412 MPIW 0.362047
+Pdrop_0.01_Tau_0.15 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911366 PICP 0.431373 MPIW 0.329600
+Pdrop_0.01_Tau_0.15 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.319698 PICP 0.607843 MPIW 0.337876
+Pdrop_0.01_Tau_0.15 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911363 PICP 0.431373 MPIW 0.329598
+Pdrop_0.01_Tau_0.15 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.316728 PICP 0.568627 MPIW 0.336440
+Pdrop_0.01_Tau_0.15 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.908373 PICP 0.431373 MPIW 0.329423
+Pdrop_0.01_Tau_0.15 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.329244 PICP 0.509804 MPIW 0.316736
+Pdrop_0.01_Tau_0.15 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.901382 PICP 0.431373 MPIW 0.317317
+Pdrop_0.01_Tau_0.2 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.642254 PICP 0.529412 MPIW 0.362047
+Pdrop_0.01_Tau_0.2 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911366 PICP 0.431373 MPIW 0.329600
+Pdrop_0.01_Tau_0.2 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.319697 PICP 0.607843 MPIW 0.337878
+Pdrop_0.01_Tau_0.2 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.911364 PICP 0.431373 MPIW 0.329599
+Pdrop_0.01_Tau_0.2 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.312277 PICP 0.588235 MPIW 0.337708
+Pdrop_0.01_Tau_0.2 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.910430 PICP 0.431373 MPIW 0.329567
+Pdrop_0.01_Tau_0.2 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.232754 PICP 0.509804 MPIW 0.324746
+Pdrop_0.01_Tau_0.2 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.904956 PICP 0.431373 MPIW 0.320390
+Pdrop_0.05_Tau_0.1 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.384694 PICP 0.784314 MPIW 0.675733
+Pdrop_0.05_Tau_0.1 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887952 PICP 0.686275 MPIW 0.693595
+Pdrop_0.05_Tau_0.1 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.756646 PICP 0.549020 MPIW 0.614081
+Pdrop_0.05_Tau_0.1 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887950 PICP 0.686275 MPIW 0.693592
+Pdrop_0.05_Tau_0.1 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.601116 PICP 0.666667 MPIW 0.649383
+Pdrop_0.05_Tau_0.1 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887983 PICP 0.686275 MPIW 0.693308
+Pdrop_0.05_Tau_0.1 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.847357 PICP 0.627451 MPIW 0.628601
+Pdrop_0.05_Tau_0.1 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.910665 PICP 0.666667 MPIW 0.663942
+Pdrop_0.05_Tau_0.15 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.384694 PICP 0.784314 MPIW 0.675733
+Pdrop_0.05_Tau_0.15 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887952 PICP 0.686275 MPIW 0.693595
+Pdrop_0.05_Tau_0.15 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.756585 PICP 0.549020 MPIW 0.614084
+Pdrop_0.05_Tau_0.15 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887951 PICP 0.686275 MPIW 0.693593
+Pdrop_0.05_Tau_0.15 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.730538 PICP 0.666667 MPIW 0.673392
+Pdrop_0.05_Tau_0.15 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887922 PICP 0.686275 MPIW 0.693395
+Pdrop_0.05_Tau_0.15 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.781304 PICP 0.549020 MPIW 0.584615
+Pdrop_0.05_Tau_0.15 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.910233 PICP 0.686275 MPIW 0.673740
+Pdrop_0.05_Tau_0.2 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.384694 PICP 0.784314 MPIW 0.675733
+Pdrop_0.05_Tau_0.2 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887952 PICP 0.686275 MPIW 0.693595
+Pdrop_0.05_Tau_0.2 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.389257 PICP 0.784314 MPIW 0.676739
+Pdrop_0.05_Tau_0.2 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887951 PICP 0.686275 MPIW 0.693594
+Pdrop_0.05_Tau_0.2 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.475631 PICP 0.784314 MPIW 0.671155
+Pdrop_0.05_Tau_0.2 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.887944 PICP 0.686275 MPIW 0.693446
+Pdrop_0.05_Tau_0.2 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 3.055577 PICP 0.588235 MPIW 0.613077
+Pdrop_0.05_Tau_0.2 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.886285 PICP 0.686275 MPIW 0.677672
+Pdrop_0.1_Tau_0.1 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.497935 PICP 0.823529 MPIW 0.841573
+Pdrop_0.1_Tau_0.1 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962538 PICP 0.745098 MPIW 0.873914
+Pdrop_0.1_Tau_0.1 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.482592 PICP 0.862745 MPIW 0.842473
+Pdrop_0.1_Tau_0.1 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962538 PICP 0.745098 MPIW 0.873911
+Pdrop_0.1_Tau_0.1 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.443334 PICP 0.882353 MPIW 0.843985
+Pdrop_0.1_Tau_0.1 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.961942 PICP 0.745098 MPIW 0.873739
+Pdrop_0.1_Tau_0.1 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.906034 PICP 0.764706 MPIW 0.830538
+Pdrop_0.1_Tau_0.1 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.966285 PICP 0.725490 MPIW 0.845903
+Pdrop_0.1_Tau_0.15 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.497935 PICP 0.823529 MPIW 0.841573
+Pdrop_0.1_Tau_0.15 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962538 PICP 0.745098 MPIW 0.873914
+Pdrop_0.1_Tau_0.15 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.482527 PICP 0.862745 MPIW 0.842477
+Pdrop_0.1_Tau_0.15 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962538 PICP 0.745098 MPIW 0.873912
+Pdrop_0.1_Tau_0.15 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.880823 PICP 0.725490 MPIW 0.838520
+Pdrop_0.1_Tau_0.15 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962212 PICP 0.745098 MPIW 0.873758
+Pdrop_0.1_Tau_0.15 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.952608 PICP 0.784314 MPIW 0.855107
+Pdrop_0.1_Tau_0.15 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.967405 PICP 0.725490 MPIW 0.855232
+Pdrop_0.1_Tau_0.2 Lengthscale: 0.01_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.497935 PICP 0.823529 MPIW 0.841573
+Pdrop_0.1_Tau_0.2 Lengthscale: 0.01_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962538 PICP 0.745098 MPIW 0.873914
+Pdrop_0.1_Tau_0.2 Lengthscale: 0.1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.488588 PICP 0.823529 MPIW 0.833835
+Pdrop_0.1_Tau_0.2 Lengthscale: 0.1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962538 PICP 0.745098 MPIW 0.873912
+Pdrop_0.1_Tau_0.2 Lengthscale: 1_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.510604 PICP 0.843137 MPIW 0.841673
+Pdrop_0.1_Tau_0.2 Lengthscale: 1_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.962197 PICP 0.745098 MPIW 0.873807
+Pdrop_0.1_Tau_0.2 Lengthscale: 10_Lr_0.001_Momentum_0.9_T_1000 :: rmse 2.783056 PICP 0.745098 MPIW 0.837125
+Pdrop_0.1_Tau_0.2 Lengthscale: 10_Lr_0.0001_Momentum_0.9_T_1000 :: rmse 2.965880 PICP 0.725490 MPIW 0.859854

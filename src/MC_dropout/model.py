@@ -271,7 +271,7 @@ class MC_drop_net_BH(BaseNet):
         return loss.data
 
     def eval(self, x, y, train=False, samples=1):
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
 
         loss = 0
 

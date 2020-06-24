@@ -262,7 +262,7 @@ class Bootstrap_Net_BH(BaseNet):
         return loss.data
 
     def eval(self, x, y, train=False):
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
 
         out = self.model(x)
 
