@@ -17,36 +17,20 @@ import time
 import math
 from pandas import Series,DataFrame
 import argparse
-import matplotlib
 from src.utils import mkdir
 from src.MC_dropout.model import *
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+from Experiments.BostonHousing.utils import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-def _get_index_train_test_path(split_num, train = True):
-    """
-       Method to generate the path containing the training/test split for the given
-       split number (generally from 1 to 20).
-       @param split_num      Split number for which the data has to be generated
-       @param train          Is true if the data is training data. Else false.
-       @return path          Path of the file containing the requried data
-    """
-    if train:
-        return _DATA_DIRECTORY_PATH + "index_train_" + str(split_num) + ".txt"
-    else:
-        return _DATA_DIRECTORY_PATH + "index_test_" + str(split_num) + ".txt"
 
 if __name__ == '__main__':
-    # Data
-    boston = load_boston()
-    df = DataFrame(boston.data,columns=boston.feature_names)
-    X = boston.data
-    Y = boston.target
+    # Load data
+    X, Y = load_data()
+    inputs = 13
+    outputs = 1
 
-    _DATA_DIRECTORY_PATH = './data/'
-
+    # Hyper-parameters
     pdrops = [0.005, 0.01, 0.05, 0.1]
     taus = [0.1, 0.15, 0.2]
     lengthscales = [1e-2, 1e-1, 1, 10]
@@ -58,7 +42,12 @@ if __name__ == '__main__':
     batch_size = 128
     nb_epochs = 40
     log_interval = 1
+    n_splits = 15
+    
+    # Paths
+    base_dir = './mc_dropout_results'
 
+    # Grid search
     results = {}
     for pdrop in pdrops :
         for tau in taus:
@@ -66,119 +55,45 @@ if __name__ == '__main__':
                 for T in Ts:
                     for lr in lrs:
                         for momentum in momentums:
-                    
-                            print('Grid search step: Pdrop: ' + str(pdrop) + ' Tau: ' + str(tau) + \
-                            ' Lengthscale: ' + str(lengthscale) + ' Lr: ' + str(lr) + ' Momentum: ' +
-                            str(momentum) + ' T: ' + str(T))
 
-                            results_dir = './mc_dropout_results/Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + \
-                            ' Lengthscale: ' + str(lengthscale) + '_Lr_' + str(lr) + '_Momentum_' + \
-                            str(momentum) + '_T_' + str(T)
+                            Hps = 'Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + '_Lengthscale_' + str(lengthscale) \
+                                  + '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_T_' + str(T)
+                            print('Grid search step:' + Hps )
 
+                            results_dir = base_dir + '/' + Hps
                             results_file = results_dir + '_results.txt'
                             mkdir(results_dir)
 
                             rmses = []
                             picps = []
                             mpiws = []
-                            # rmse_stds = 0
-
-                            n_splits = 15
 
                             for split in range(int(n_splits)):
 
                                 results_dir_split = results_dir + '/split_' + str(split)
                                 mkdir(results_dir_split)
 
-                                # We load the indexes of the training and test sets
-                                print('Loading file: ' + _get_index_train_test_path(split, train=True))
-                                print('Loading file: ' + _get_index_train_test_path(split, train=False))
-                                index_train = np.loadtxt(_get_index_train_test_path(split, train=True))
-                                index_test = np.loadtxt(_get_index_train_test_path(split, train=False))
-
-                                X_train = X[[int(i) for i in index_train.tolist()]]
-                                y_train = Y[[int(i) for i in index_train.tolist()]]
-
-                                X_test = X[[int(i) for i in index_test.tolist()]]
-                                y_test = Y[[int(i) for i in index_test.tolist()]]
-
-                                y_train = y_train.reshape([y_train.shape[0], 1])
-                                y_test = y_test.reshape([y_test.shape[0], 1])
-
-                                num_training_examples = int(0.8 * X_train.shape[0])
-
-                                X_val = X_train[num_training_examples:, :]
-                                y_val = y_train[num_training_examples:, :]
-
-                                X_train = X_train[0:num_training_examples, :]
-                                y_train = y_train[0:num_training_examples, :]
-
-                                x_means, x_stds = X_train.mean(axis=0), X_train.var(axis=0) ** 0.5
-                                y_means, y_stds = y_train.mean(axis=0), y_train.var(axis=0) ** 0.5
-
-                                X_train = (X_train - x_means) / x_stds
-                                y_train = (y_train - y_means) / y_stds
-
-                                X_val = (X_val - x_means) / x_stds
-                                y_val = (y_val - y_means) / y_stds
-
-                                X_test = (X_test - x_means) / x_stds
-                                y_test = (y_test - y_means) / y_stds
-
-                                x_train = torch.from_numpy(X_train).float()
-                                y_train = torch.from_numpy(y_train).float()
-                                print(x_train.size(), y_train.size())
-                                trainset = torch.utils.data.TensorDataset(x_train, y_train)
-
-                                x_val = torch.from_numpy(X_val).float()
-                                y_val = torch.from_numpy(y_val).float()
-                                print(x_val.size(), y_val.size())
-                                valset = torch.utils.data.TensorDataset(x_val, y_val)
-
-                                x_test = torch.from_numpy(X_test).float()
-                                y_test = torch.from_numpy(y_test).float()
-                                print(x_test.size(), y_test.size())
-                                testset = torch.utils.data.TensorDataset(x_test, y_test)
-
-                                inputs = 13
-                                outputs = 1
+                                # get splited data\dataset\dataloder
+                                X_train, y_train, X_val, y_val, X_test, y_test, y_stds = get_data_splited(split, X, Y)
+                                trainset, valset, testset = get_dataset(X_train, y_train, X_val, y_val, X_test, y_test)
 
                                 use_cuda = torch.cuda.is_available()
 
-                                if use_cuda:
-                                    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                                              shuffle=True, pin_memory=True,
-                                                                              num_workers=3)
-                                    valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                                            shuffle=False, pin_memory=True,
-                                                                            num_workers=3)
-                                    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                                             shuffle=False, pin_memory=True,
-                                                                             num_workers=3)
-                                else:
-                                    trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                                              shuffle=True, pin_memory=False,
-                                                                              num_workers=3)
-                                    valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                                            shuffle=False, pin_memory=False,
-                                                                            num_workers=3)
-                                    testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                                             shuffle=False, pin_memory=False,
-                                                                             num_workers=3)
+                                trainloader, valloader, testloader = get_dataloader(trainset, valset, testset, use_cuda,
+                                                                                    batch_size)
 
-                                results_val = './mc_dropout_results/results_val_split_' + str(split) + '.txt'
-                                results_test = './mc_dropout_results/results_test_split_' + str(split) + '.txt'
+                                results_val = base_dir + '/results_val_split_' + str(split) + '.txt'
+                                results_test = base_dir + '/results_test_split_' + str(split) + '.txt'
 
                                 # net dims
                                 N = X_train.shape[0]
-
                                 reg = lengthscale ** 2 * (1 - pdrop) / (2. * N * tau)
 
                                 cprint('c', '\nNetwork:')
                                 net = MC_drop_net_BH(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
                                                     batch_size=batch_size, weight_decay=reg,n_hid=50, momentum=momentum, pdrop=pdrop)
 
-                                # train
+                                # ---- train
                                 epoch = 0
                                 cprint('c', '\nTrain:')
 
@@ -209,11 +124,6 @@ if __name__ == '__main__':
                                     pred_cost_train[i] /= nb_samples
                                     rmse_train[i] = (rmse_train[i] / nb_samples)**0.5
 
-                                    # ###################
-                                    # pred_cost_train[i] *= y_stds
-                                    # rmse_train[i] *= y_stds
-                                    # ###################
-
                                     toc = time.time()
                                     net.epoch = i
                                     # ---- print
@@ -225,25 +135,15 @@ if __name__ == '__main__':
                                     if i % nb_its_dev == 0:
                                         net.set_mode_train(False)
                                         nb_samples = 0
-                                        # rmses_dev = np.zeros((X_train.shape[0], outputs, T))
-                                        # start = 0
+
                                         for j, (x, y) in enumerate(valloader):
-                                            # end = len(x) + start
                                             cost, mse, _, _ = net.eval(x, y, samples=T)
-                                            # start = end
                                             cost_dev[i] += cost
                                             rmse_dev[i] += mse
                                             nb_samples += len(x)
 
                                         cost_dev[i] /= nb_samples
                                         rmse_dev[i] = (rmse_dev[i] / nb_samples)**0.5
-
-                                        # ###################
-                                        # cost_dev[i] *= y_stds
-                                        # rmse_dev[i] *= y_stds
-                                        # ###################
-
-                                        # rmse_std_dev = np.std(np.mean(rmses_dev))
 
                                         cprint('g', '    Jdev = %f, rmse = %f\n' % (cost_dev[i], rmse_dev[i]))
 
@@ -269,6 +169,7 @@ if __name__ == '__main__':
                                 means = np.zeros((X_test.shape[0], outputs))
                                 stds = np.zeros((X_test.shape[0], outputs))
 
+                                # ---- test
                                 start = 0
                                 for j, (x, y) in enumerate(testloader):
                                     end = len(x) + start
@@ -286,28 +187,20 @@ if __name__ == '__main__':
 
                                 y_L = means - 2 * stds
                                 y_U = means + 2 * stds
-                                y_true_test = y_test.numpy()
-                                u = np.maximum(0, np.sign(y_U - y_true_test))
-                                l = np.maximum(0, np.sign(y_true_test - y_L))
+                                u = np.maximum(0, np.sign(y_U - y_test))
+                                l = np.maximum(0, np.sign(y_test - y_L))
                                 PICP = np.mean(np.multiply(u, l))
                                 MPIW = np.mean(y_U - y_L)
 
                                 cost_test /= nb_samples
                                 rmse_test = (rmse_test / nb_samples)**0.5
-                                # rmse_std_test = np.std(np.mean(rmses_test))
 
                                 cost_test = cost_test.cpu().data.numpy()
                                 rmse_test = rmse_test.cpu().data.numpy()
 
-                                # ###################
-                                # cost_test *= y_stds
-                                # rmse_test *= y_stds
-                                # ###################
-
                                 rmses.append(rmse_test*y_stds)
                                 picps.append(PICP)
                                 mpiws.append(MPIW)
-                                # rmse_stds += rmse_std_test
 
                                 best_cost_dev = np.min(cost_dev)
                                 best_cost_train = np.min(pred_cost_train)
@@ -326,117 +219,37 @@ if __name__ == '__main__':
                                 np.save(results_dir_split + '/cost_dev.npy', cost_dev)
                                 np.save(results_dir_split + '/rmse_train.npy', rmse_train)
                                 np.save(results_dir_split + '/rmse_dev.npy', rmse_dev)
-
                                 np.save(results_dir_split + '/means.npy', means)
                                 np.save(results_dir_split + '/stds.npy', stds)
 
                                 # Storing validation results
-                                with open(results_val, "a") as myfile:
-                                    myfile.write('Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + \
-                                    ' Lengthscale: ' + str(lengthscale) + '_Lr_' + str(lr) + '_Momentum_' + str(momentum) +
-                                    '_T_' + str(T) + ' :: ')
-                                    myfile.write('rmse %f ' % (rmse_dev_min*y_stds) + '\n')
+                                store_results(results_val, [Hps + ' :: ', 'rmse %f ' % (rmse_dev_min * y_stds) + '\n'])
 
                                 # Storing testing results
-                                with open(results_test, "a") as myfile:
-                                    myfile.write('Pdrop_' + str(pdrop) + '_Tau_' + str(tau) + \
-                                    ' Lengthscale: ' + str(lengthscale) + '_Lr_' + str(lr) + '_Momentum_' + str(momentum) +
-                                    '_T_' + str(T) + ' :: ')
-                                    myfile.write('rmse %f PICP %f MPIW %f' % (rmse_test*y_stds, PICP, MPIW) + '\n')
+                                store_results(results_test, [Hps + ' :: ', 'rmse %f PICP %f MPIW %f' % (rmse_test * y_stds, PICP, MPIW) + '\n'])
 
-                                with open(results_file, "a") as myfile:
-                                    myfile.write('rmse %f PICP %f MPIW %f' % (rmse_test*y_stds, PICP, MPIW) + '\n')
+                                # storing testing results for this split
+                                store_results(results_file,
+                                              ['rmse %f PICP %f MPIW %f' % (rmse_test * y_stds, PICP, MPIW) + '\n'])
 
                                 ## ---------------------------------------------------------------------------------------------------------------------
-                                # fig cost vs its
-                                textsize = 15
-                                marker = 5
-
-                                plt.figure(dpi=100)
-                                fig, ax1 = plt.subplots()
-                                ax1.plot(pred_cost_train, 'r--')
-                                ax1.plot(range(0, nb_epochs, nb_its_dev), cost_dev[::nb_its_dev], 'b-')
-                                ax1.set_ylabel('MSE loss')
-                                plt.xlabel('epoch')
-                                plt.grid(b=True, which='major', color='k', linestyle='-')
-                                plt.grid(b=True, which='minor', color='k', linestyle='--')
-                                lgd = plt.legend(['train cost', 'val cost'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
-                                ax = plt.gca()
-                                plt.title('Regression costs')
-                                for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                                             ax.get_xticklabels() + ax.get_yticklabels()):
-                                    item.set_fontsize(textsize)
-                                    item.set_weight('normal')
-                                plt.savefig(results_dir_split + '/pred_cost.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
-
-                                plt.figure(dpi=100)
-                                fig2, ax2 = plt.subplots()
-                                ax2.set_ylabel('% rmse')
-                                ax2.semilogy(range(0, nb_epochs, nb_its_dev), 100 * rmse_dev[::nb_its_dev], 'b-')
-                                ax2.semilogy(100 * rmse_train, 'r--')
-                                plt.xlabel('epoch')
-                                plt.grid(b=True, which='major', color='k', linestyle='-')
-                                plt.grid(b=True, which='minor', color='k', linestyle='--')
-                                ax2.get_yaxis().set_minor_formatter(matplotlib.ticker.ScalarFormatter())
-                                ax2.get_yaxis().set_major_formatter(matplotlib.ticker.ScalarFormatter())
-                                lgd = plt.legend(['val rmse', 'train rmse'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
-                                ax = plt.gca()
-                                for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] +
-                                             ax.get_xticklabels() + ax.get_yticklabels()):
-                                    item.set_fontsize(textsize)
-                                    item.set_weight('normal')
-                                plt.savefig(results_dir_split + '/rmse.png', bbox_extra_artists=(lgd,), box_inches='tight')
-
-                                means = means.reshape((means.shape[0],))
-                                stds = stds.reshape((stds.shape[0],))
-
-                                c = ['#1f77b4', '#ff7f0e']
-                                ind = np.arange(0, len(y_test))
-                                plt.figure()
-                                fig, ax1 = plt.subplots()
-                                plt.scatter(ind, y_test, color='black', alpha=0.5)
-                                ax1.plot(ind, means, 'r')
-                                plt.fill_between(ind, means - 3 * stds, means + 3 * stds,
-                                                 alpha=0.25, label='99.7% Confidence')
-                                plt.fill_between(ind, means - 2 * stds, means + 2 * stds,
-                                                 alpha=0.25, label='95% Confidence')
-                                plt.fill_between(ind, means - stds, means + stds,
-                                                 alpha=0.25, label='68% Confidence')
-                                ax1.set_ylabel('prediction')
-                                plt.xlabel('test points')
-                                plt.grid(b=True, which='major', color='k', linestyle='-')
-                                plt.grid(b=True, which='minor', color='k', linestyle='--')
-                                ax = plt.gca()
-                                plt.title('Uncertainty')
-
-                                plt.savefig(results_dir_split + '/uncertainty.png',
-                                            bbox_inches='tight')
+                                ## plot figures
+                                plot_pred_cost(pred_cost_train, nb_epochs, nb_its_dev, cost_dev, results_dir_split)
+                                plot_rmse(nb_epochs, nb_its_dev, rmse_train, rmse_dev, results_dir_split)
+                                plot_uncertainty(means, stds, y_test, results_dir_split)
 
                             rmses = np.array(rmses)
                             picps = np.array(picps)
                             mpiws = np.array(mpiws)
 
-                            with open(results_file, "a") as myfile:
-                                myfile.write('Overall: \n rmses %f +- %f (stddev) PICP %f MPIW %f\n' % (
-                                    np.mean(rmses), np.std(rmses) / int(n_splits), np.mean(picps), np.mean(mpiws)))
+                            store_results(results_file,['Overall: \n rmses %f +- %f (stddev) +- %f (std error) PICP %f MPIW %f\n' % (
+                                              np.mean(rmses), np.std(rmses), np.std(rmses) / math.sqrt(n_splits),
+                                              np.mean(picps), np.mean(mpiws))])
 
                             s = 'Pdrop: ' + str(pdrop) + ' Tau: ' + str(tau) + \
                             ' Lengthscale: ' + str(lengthscale) + ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' T: ' + str(T)
 
-                            results[s] = [np.mean(rmses), np.std(rmses) / int(n_splits), np.mean(picps), np.mean(mpiws)]
+                            results[s] = [np.mean(rmses), np.std(rmses), np.std(rmses)/math.sqrt(n_splits), np.mean(picps), np.mean(mpiws)]
 
-    results_order_rmse = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
-    for i in range(len(results_order_rmse)):
-        with open('./mc_dropout_results/results_rmse.txt', 'a') as f:
-            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f'
-                    % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2], results_order_rmse[i][1][3],))
-            f.write('\n')
-    results_order_picp = sorted(results.items(), key=lambda x: x[1][2], reverse=True)
-    for i in range(len(results_order_picp)):
-        with open('./mc_dropout_results/results_picp.txt', 'a') as f:
-            f.write(str(results_order_picp[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f'
-                    % (results_order_picp[i][1][0], results_order_picp[i][1][1], results_order_picp[i][1][2], results_order_picp[i][1][3],))
-            f.write('\n')
-    # file = open('./mc_dropout_results/results.txt', 'w')
-    # file.writelines(json.dumps(results_order))
-    # file.close()
+    # sort all the results
+    store_all_results(results, base_dir)

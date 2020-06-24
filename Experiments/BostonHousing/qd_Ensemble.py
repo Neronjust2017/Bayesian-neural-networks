@@ -17,37 +17,19 @@ import time
 import math
 from pandas import Series,DataFrame
 import argparse
-import matplotlib
 from src.utils import mkdir
 from src.Quality_deiven_PI_Ensemble.model import *
 from src.Quality_deiven_PI_Ensemble.utils import *
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+from Experiments.BostonHousing.utils import *
 import shutil
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
-def _get_index_train_test_path(split_num, train = True):
-    """
-       Method to generate the path containing the training/test split for the given
-       split number (generally from 1 to 20).
-       @param split_num      Split number for which the data has to be generated
-       @param train          Is true if the data is training data. Else false.
-       @return path          Path of the file containing the requried data
-    """
-    if train:
-        return _DATA_DIRECTORY_PATH + "index_train_" + str(split_num) + ".txt"
-    else:
-        return _DATA_DIRECTORY_PATH + "index_test_" + str(split_num) + ".txt"
-
 if __name__ == '__main__':
-    # Data
-    boston = load_boston()
-    df = DataFrame(boston.data,columns=boston.feature_names)
-    X = boston.data
-    Y = boston.target
-
-    _DATA_DIRECTORY_PATH = './data/'
+    # Load data
+    X, Y = load_data()
+    inputs = 13
+    outputs = 1
 
     # type_in = '~' + 'boston'  # data type to use - drunk_bow_tie x_cubed_gap ~boston ~concrete
     # loss_type = 'gauss_like'  # loss type to train on - qd_soft gauss_like(=mve) mse (mse=simple point prediction)
@@ -76,6 +58,7 @@ if __name__ == '__main__':
     # out_biases = [3., -3.]  # chose biases for output layer (for gauss_like is overwritten to 0,1)
     # activation = 'relu'  # NN activation fns - tanh relu
 
+    # Hyper-parameters
     subsamples = [0.8, 0.9]
     lrs = [0.03, 0.003]
     alphas = [0.05, 0.10, 0.01]     # data points captured = (1 - alpha)
@@ -97,20 +80,21 @@ if __name__ == '__main__':
     batch_size = 100
     nb_epochs = 100
     log_interval = 1
+    n_splits = 15
 
-    # plotting
     # plotting options
-    is_use_val = True
     save_graphs = True
     show_graphs = True
-    show_train = False
     is_y_rescale = False
     is_y_sort = False
-    is_print_info = True
     var_plot = 0  # lets us plot against different variables, use 0 for univariate
     is_err_bars = True
     is_norm_plot = True
 
+    # Paths
+    base_dir = './qd_ensemble_results2'
+    
+    # Grid search
     results = {}
     for n_net in n_nets :
         for subsample in subsamples:
@@ -137,85 +121,32 @@ if __name__ == '__main__':
                                                             else:
                                                                 raise Exception('ERROR unusual alpha')
 
-                                                            print('Grid search step: N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
-                                                                  ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
-                                                                  + ' loss_type: ' + str(loss_type) + ' Type_ins: ' + type_in + ' Soften: ' + str(soften)
-                                                                  + ' lambda_in: ' + str(lambda_in) )
-
-                                                            results_dir = './qd_ensemble_results/N_net_' + str(n_net) + '_Subsample_' + str(subsample) + \
+                                                            Hps = 'N_net_' + str(n_net) + '_Subsample_' + str(subsample) + \
                                                                   '_Lr_' + str(lr) + '_Momentum_' + str(momentum) + '_Weight_decay_' + str(weight_decay) \
                                                                   + '_loss_type_' + str(loss_type) + '_Type_ins_' + type_in + '_Soften_' + str(soften) \
                                                                   + '_lambda_in_' + str(lambda_in)
+                                                            
+                                                            print('Grid search step: ' + Hps)
 
+                                                            results_dir = base_dir + '/' + Hps
                                                             results_file = results_dir + '_results.txt'
                                                             mkdir(results_dir)
 
                                                             results_splits = []
 
-                                                            n_splits = 15
-
                                                             for split in range(int(n_splits)):
                                                                 results_dir_split = results_dir + '/split_' + str(split)
                                                                 mkdir(results_dir_split)
 
-                                                                # We load the indexes of the training and test sets
-                                                                print('Loading file: ' + _get_index_train_test_path(split, train=True))
-                                                                print('Loading file: ' + _get_index_train_test_path(split, train=False))
-                                                                index_train = np.loadtxt(_get_index_train_test_path(split, train=True))
-                                                                index_test = np.loadtxt(_get_index_train_test_path(split, train=False))
+                                                                # get splited data\dataset
+                                                                X_train, y_train, X_val, y_val, X_test, y_test, y_stds = get_data_splited(split, X, Y)
+                                                                trainset, valset, testset = get_dataset(X_train,y_train, X_val,y_val, X_test,y_test)
 
-                                                                X_train = X[[int(i) for i in index_train.tolist()]]
-                                                                y_train = Y[[int(i) for i in index_train.tolist()]]
-
-                                                                X_test = X[[int(i) for i in index_test.tolist()]]
-                                                                y_test = Y[[int(i) for i in index_test.tolist()]]
-
-                                                                y_train = y_train.reshape([y_train.shape[0], 1])
-                                                                y_test = y_test.reshape([y_test.shape[0], 1])
-
-                                                                num_training_examples = int(0.8 * X_train.shape[0])
-
-                                                                X_val = X_train[num_training_examples:, :]
-                                                                y_val = y_train[num_training_examples:, :]
-
-                                                                X_train = X_train[0:num_training_examples, :]
-                                                                y_train = y_train[0:num_training_examples, :]
-
-                                                                x_means, x_stds = X_train.mean(axis=0), X_train.var(axis=0) ** 0.5
-                                                                y_means, y_stds = y_train.mean(axis=0), y_train.var(axis=0) ** 0.5
-
-                                                                X_train = (X_train - x_means) / x_stds
-                                                                y_train = (y_train - y_means) / y_stds
-
-                                                                X_val = (X_val - x_means) / x_stds
-                                                                y_val = (y_val - y_means) / y_stds
-
-                                                                X_test = (X_test - x_means) / x_stds
-                                                                y_test = (y_test - y_means) / y_stds
-
-                                                                x_train = torch.from_numpy(X_train).float()
-                                                                y_train = torch.from_numpy(y_train).float()
-                                                                print(x_train.size(), y_train.size())
-                                                                trainset = torch.utils.data.TensorDataset(x_train, y_train)
-
-                                                                x_val = torch.from_numpy(X_val).float()
-                                                                y_val = torch.from_numpy(y_val).float()
-                                                                print(x_val.size(), y_val.size())
-                                                                valset = torch.utils.data.TensorDataset(x_val, y_val)
-
-                                                                x_test = torch.from_numpy(X_test).float()
-                                                                y_test = torch.from_numpy(y_test).float()
-                                                                print(x_test.size(), y_test.size())
-                                                                testset = torch.utils.data.TensorDataset(x_test, y_test)
-
-                                                                inputs = 13
-                                                                outputs = 2
-
-                                                                results_val = './qd_ensemble_results/results_val_split_' + str(split) + '.txt'
-                                                                results_test = './qd_ensemble_results/results_test_split_' + str(split) + '.txt'
+                                                                results_val = base_dir + '/results_val_split_' + str(split) + '.txt'
+                                                                results_test = base_dir + '/results_test_split_' + str(split) + '.txt'
 
                                                                 ###
-                                                                y_pred_all = np.zeros((n_net, x_test.shape[0], outputs))
+                                                                y_pred_all = np.zeros((n_net, X_test.shape[0], outputs * 2))
                                                                 ###
 
                                                                 for iii in range(n_net):
@@ -233,45 +164,23 @@ if __name__ == '__main__':
                                                                     sampler = SubsetRandomSampler(keep_idx)
 
                                                                     use_cuda = torch.cuda.is_available()
-
-                                                                    if use_cuda:
-                                                                        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                                                                                  shuffle=False, pin_memory=True,
-                                                                                                                  num_workers=3, sampler=sampler)
-                                                                        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                                                                                shuffle=False, pin_memory=True,
-                                                                                                                num_workers=3)
-                                                                        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                                                                                 shuffle=False, pin_memory=True,
-                                                                                                                 num_workers=3)
-                                                                    else:
-                                                                        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                                                                                  shuffle=False, pin_memory=False,
-                                                                                                                  num_workers=0, sampler=sampler)
-                                                                        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                                                                                shuffle=False, pin_memory=False,
-                                                                                                                num_workers=0)
-                                                                        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                                                                                 shuffle=False, pin_memory=False,
-                                                                                                                 num_workers=0)
+                                                                    trainloader, valloader, testloader = get_dataloader_sample(trainset, valset, testset, use_cuda, batch_size, sampler)
 
                                                                     results_val_split = results_dir + '/results_val_split_' + str(split) + '.txt'
                                                                     results_test_split = results_dir + '/results_test_split_' + str(split) + '.txt'
 
-                                                                    ###############################################################
-                                                                    net = QD_net_BH( lr=lr, input_dim=13, cuda=use_cuda, output_dim=1, batch_size=128,
+                                                                    # net dims
+                                                                    cprint('c', '\nNetwork:')
+                                                                    net = QD_net_BH( lr=lr, input_dim=inputs, cuda=use_cuda, output_dim=outputs, batch_size=128,
                                                                                      type_in=type_in, alpha=alpha,loss_type=loss_type, censor_R=censor_R,
                                                                                      soften=soften, lambda_in=lambda_in, sigma_in=sigma_in, bias_rand=bias_rand, out_biases=out_biases,
                                                                                      weight_decay=weight_decay, n_hid=50, momentum=momentum)
-
-                                                                    epoch = 0
-
                                                                     ## ---------------------------------------------------------------------------------------------------------------------
                                                                     # train
+                                                                    epoch = 0
                                                                     cprint('c', '\nTrain:')
+
                                                                     print('  init cost variables:')
-
-
                                                                     pred_cost_train = []
                                                                     PICP_train = []
                                                                     MPIW_train = []
@@ -357,21 +266,17 @@ if __name__ == '__main__':
                                                                             if early_stop > 20 and epoch > nb_epochs/2:
                                                                                 break
 
-
                                                                     toc0 = time.time()
                                                                     runtime_per_it = (toc0 - tic0) / float(nb_epochs)
                                                                     cprint('r', '   average time: %f seconds\n' % runtime_per_it)
                                                                     ## ---------------------------------------------------------------------------------------------------------------------
                                                                     # results
                                                                     net.load(results_dir_split + '/theta_best_val_' + str(iii) + '.dat')
-                                                                    ###
-                                                                    #  删除
-                                                                    ###
+
                                                                     cprint('c', '\nRESULTS:')
                                                                     nb_parameters = net.get_nb_parameters()
 
                                                                     net.set_mode_train(False)
-
                                                                     cost_test = 0
                                                                     picp_test = 0
                                                                     mpiw_test = 0
@@ -407,13 +312,10 @@ if __name__ == '__main__':
                                                                     print('  time_per_it: %fs\n' % (runtime_per_it))
 
                                                                     # Storing validation results
-                                                                    with open(results_val_split, "a") as myfile:
-                                                                        myfile.write('Net_%d: PICP %f MPIW %f\n' % (iii, picp_dev_min, mpiw_dev_min))
+                                                                    store_results(results_val_split, ['Net_%d: PICP %f MPIW %f\n' % (iii, picp_dev_min, mpiw_dev_min)])
 
                                                                     # Storing testing results
-                                                                    with open(results_test_split, "a") as myfile:
-                                                                        myfile.write('Net_%d: PICP %f MPIW %f  \n' % (iii, picp_test, mpiw_test))
-
+                                                                    store_results(results_test_split, ['Net_%d: PICP %f MPIW %f  \n' % (iii, picp_test, mpiw_test)])
 
                                                                 if loss_type == 'qd_soft':
                                                                     y_pred_gauss_mid, y_pred_gauss_dev, y_pred_U, \
@@ -440,8 +342,6 @@ if __name__ == '__main__':
                                                                                            n_std_devs)
 
                                                                 # work out metrics
-                                                                y_test = y_test.numpy()
-
                                                                 y_U_cap = y_pred_U > y_test.reshape(-1)
                                                                 y_L_cap = y_pred_L < y_test.reshape(-1)
                                                                 y_all_cap = y_U_cap * y_L_cap
@@ -484,7 +384,7 @@ if __name__ == '__main__':
                                                                         save_path = results_dir + '/split_' + str(
                                                                             split) + '_err_bars.png'
 
-                                                                        plot_err_bars(x_test, y_test, y_pred_U,
+                                                                        plot_err_bars(X_test, y_test, y_pred_U,
                                                                                       y_pred_L,
                                                                                       is_y_sort, is_y_rescale,
                                                                                       y_stds, save_graphs,save_path,
@@ -509,18 +409,11 @@ if __name__ == '__main__':
                                                                             split) + '_norm_plot.png',
                                                                                     bbox_inches='tight')
 
-                                                                with open(results_test, "a") as myfile:
-                                                                    myfile.write('N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
-                                                                  ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay) \
-                                                                  + ' loss_type: ' + str(loss_type) + ' Type_ins: ' + type_in + ' Soften: ' + str(soften) \
-                                                                  + ' lambda_in: ' + str(lambda_in) + ' :: ')
-                                                                    myfile.write('mse %f rmse %f PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
-                                                                                 % (MSE, RMSE, PICP, MPIW, CWC, neg_log_like, shapiro_W, shapiro_p) + '\n')
+                                                                store_results(results_test, [Hps + ' :: ', 'mse %f rmse %f PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                                                                                 % (MSE, RMSE, PICP, MPIW, CWC, neg_log_like, shapiro_W, shapiro_p) + '\n'])
 
-                                                                with open(results_file, "a") as myfile:
-                                                                    myfile.write('mse %f rmse %f PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
-                                                                        % (MSE, RMSE, PICP, MPIW, CWC, neg_log_like,shapiro_W, shapiro_p) + '\n')
-
+                                                                store_results(results_file, ['mse %f rmse %f PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                                                                        % (MSE, RMSE, PICP, MPIW, CWC, neg_log_like,shapiro_W, shapiro_p) + '\n'])
 
                                                                 shutil.rmtree(results_dir_split)
 
@@ -550,29 +443,29 @@ if __name__ == '__main__':
 
                                                             means = np.mean(results_splits, axis=0)
                                                             stds = np.std(results_splits[:, 1])
-                                                            
-                                                            with open(results_file, "a") as myfile:
-                                                                myfile.write('Overall: \n rmse %f +- %f (stddev) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
-                                                                    % ( means[1], stds, means[2], means[3], means[4], means[5], means[6], means[7]) + '\n')
+                                                            std_errors = stds / math.sqrt(n_splits)
+
+                                                            store_results(results_file, ['Overall: \n rmse %f +- %f (stddev) +- %f (std error) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                                                                    % ( means[1], stds, std_errors, means[2], means[3], means[4], means[5], means[6], means[7]) + '\n'])
 
                                                             s = 'N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
                                                             ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
 
-                                                            results[s] = [means[1], stds, means[2], means[3], means[4], means[5], means[6], means[7]]
+                                                            results[s] = [ means[1], stds, std_errors, means[2], means[3], means[4], means[5], means[6], means[7]]
 
     results_order_rmse = sorted(results.items(), key=lambda x: x[1][0], reverse=False)
     for i in range(len(results_order_rmse)):
-        with open('./qd_ensemble_results/results_rmse.txt', 'a') as f:
-            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+        with open(base_dir + '/results_rmse.txt', 'a') as f:
+            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) +- %f (std error) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
                     % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2],
                        results_order_rmse[i][1][3], results_order_rmse[i][1][4], results_order_rmse[i][1][5],
-                       results_order_rmse[i][1][6], results_order_rmse[i][1][7]))
+                       results_order_rmse[i][1][6], results_order_rmse[i][1][7], results_order_rmse[i][1][8]))
             f.write('\n')
-    results_order_picp = sorted(results.items(), key=lambda x: x[1][2], reverse=True)
+    results_order_picp = sorted(results.items(), key=lambda x: x[1][3], reverse=True)
     for i in range(len(results_order_picp)):
-        with open('./qd_ensemble_results/results_picp.txt', 'a') as f:
-            f.write(str(results_order_rmse[i][0]) + ' RMSE: %f +- %f (stddev) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
-                    % (results_order_rmse[i][1][0], results_order_rmse[i][1][1], results_order_rmse[i][1][2],
-                       results_order_rmse[i][1][3], results_order_rmse[i][1][4], results_order_rmse[i][1][5],
-                       results_order_rmse[i][1][6], results_order_rmse[i][1][7]))
+        with open(base_dir + '/results_picp.txt', 'a') as f:
+            f.write(str(results_order_picp[i][0]) + ' RMSE: %f +- %f (stddev) +- %f (std error) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
+                    % (results_order_picp[i][1][0], results_order_picp[i][1][1], results_order_picp[i][1][2],
+                       results_order_picp[i][1][3], results_order_picp[i][1][4], results_order_picp[i][1][5],
+                       results_order_picp[i][1][6], results_order_picp[i][1][7], results_order_picp[i][1][8]))
             f.write('\n')
