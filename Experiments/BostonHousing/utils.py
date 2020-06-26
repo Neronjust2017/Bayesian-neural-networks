@@ -86,51 +86,82 @@ def get_dataset(X_train, y_train, X_val, y_val, X_test, y_test):
 
     return trainset, valset, testset
 
-def get_dataloader(trainset, valset, testset, use_cuda, batch_size):
-    if use_cuda:
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=True, pin_memory=True,
-                                                  num_workers=3)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                shuffle=False, pin_memory=True,
-                                                num_workers=3)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                 shuffle=False, pin_memory=True,
-                                                 num_workers=3)
+def get_dataloader(trainset, valset, testset, use_cuda, batch_size, worker=True):
+    if worker:
+        if use_cuda:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=True, pin_memory=True,
+                                                      num_workers=3)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False, pin_memory=True,
+                                                    num_workers=3)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False, pin_memory=True,
+                                                     num_workers=3)
+        else:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=True, pin_memory=False,
+                                                      num_workers=3)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False, pin_memory=False,
+                                                    num_workers=3)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False, pin_memory=False,
+                                                     num_workers=3)
     else:
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=True, pin_memory=False,
-                                                  num_workers=3)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                shuffle=False, pin_memory=False,
-                                                num_workers=3)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                 shuffle=False, pin_memory=False,
-                                                 num_workers=3)
+        if use_cuda:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=True)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False)
+        else:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=True)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False)
     return trainloader, valloader, testloader
 
-def get_dataloader_sample(trainset, valset, testset, use_cuda, batch_size, sampler):
-
-    if use_cuda:
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=False, pin_memory=True,
-                                                  num_workers=3, sampler=sampler)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                shuffle=False, pin_memory=True,
-                                                num_workers=3)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                 shuffle=False, pin_memory=True,
-                                                 num_workers=3)
+def get_dataloader_sample(trainset, valset, testset, use_cuda, batch_size, sampler, worker=True):
+    if worker:
+        if use_cuda:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=False, pin_memory=True,
+                                                      num_workers=3, sampler=sampler)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False, pin_memory=True,
+                                                    num_workers=3)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False, pin_memory=True,
+                                                     num_workers=3)
+        else:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=False, pin_memory=False,
+                                                      num_workers=3, sampler=sampler)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False, pin_memory=False,
+                                                    num_workers=3)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False, pin_memory=False,
+                                                     num_workers=3)
     else:
-        trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
-                                                  shuffle=False, pin_memory=False,
-                                                  num_workers=3, sampler=sampler)
-        valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
-                                                shuffle=False, pin_memory=False,
-                                                num_workers=3)
-        testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
-                                                 shuffle=False, pin_memory=False,
-                                                 num_workers=3)
+        if use_cuda:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=False, sampler=sampler)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False)
+        else:
+            trainloader = torch.utils.data.DataLoader(trainset, batch_size=batch_size,
+                                                      shuffle=False, sampler=sampler)
+            valloader = torch.utils.data.DataLoader(valset, batch_size=batch_size,
+                                                    shuffle=False)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=batch_size,
+                                                     shuffle=False)
     return trainloader, valloader, testloader
 
 def store_results(file, results):
