@@ -446,8 +446,14 @@ if __name__ == '__main__':
                                                         store_results(results_file, ['Overall: \n rmse %f +- %f (stddev) +- %f (std error) PICP %f MPIW %f CWC %f nll %f shapiro_W %f shapiro_p %f '
                                                                 % ( means[1], stds, std_errors, means[2], means[3], means[4], means[5], means[6], means[7]) + '\n'])
 
-                                                        s = 'N_net: ' + str(n_net) + ' Subsample: ' + str(subsample) + \
-                                                        ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' Weight_decay: ' + str(weight_decay)
+                                                        s = 'N_net: ' + str(n_net) + ' Subsample:' + str(
+                                                            subsample) + ' Alpha: ' + str(alpha) + \
+                                                              ' Lr: ' + str(lr) + ' Momentum: ' + str(
+                                                            momentum) + ' Weight_decay: ' + str(weight_decay) \
+                                                              + ' loss_type: ' + str(
+                                                            loss_type) + ' Type_ins: ' + type_in + ' Soften: ' + str(
+                                                            soften) \
+                                                              + ' lambda_in: ' + str(lambda_in)
 
                                                         results[s] = [ means[1], stds, std_errors, means[2], means[3], means[4], means[5], means[6], means[7]]
 
