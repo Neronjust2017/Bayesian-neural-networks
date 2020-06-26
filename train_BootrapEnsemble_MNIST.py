@@ -84,6 +84,8 @@ weight_set_samples = []
 
 p_subsample = args.subsample
 
+
+############    Nruns:ensemble 数量
 for iii in range(Nruns):
     keep_idx = []
     for idx in range(len(trainset)):

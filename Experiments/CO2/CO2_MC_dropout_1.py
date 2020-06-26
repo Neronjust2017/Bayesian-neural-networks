@@ -169,7 +169,7 @@ class MC_Dropout_Wrapper:
 
         output = self.network(x)
         # print(output)
-        loss = self.loss_func(output, y, self.network.log_noise, 1) / len(x)
+        loss = self.loss_func(output, y, torch.exp(self.network.log_noise), 1) / len(x)
         # print(y)
 
         loss.backward()

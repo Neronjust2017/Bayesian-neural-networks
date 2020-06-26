@@ -95,7 +95,7 @@ nsamples = int(args.n_samples)  # How many samples to estimate ELBO with at each
 ########################################################################################
 
 if args.model == 'Local_Reparam':
-    net = BBP_Bayes_Net_LR(lr=lr, channels_in=1, side_in=28, cuda=use_cuda, classes=10, batch_size=batch_size,
+    net = BBP_Bayes_Net_LR(lr=lr, channels_in=1, side_in=1, cuda=use_cuda, classes=10, batch_size=batch_size,
                      Nbatches=(NTrainPointsMNIST / batch_size), nhid=1200, prior_sig=args.prior_sig)
 elif args.model == 'Laplace_prior':
     net = BBP_Bayes_Net(lr=lr, channels_in=1, side_in=28, cuda=use_cuda, classes=10, batch_size=batch_size,

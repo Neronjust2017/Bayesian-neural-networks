@@ -126,6 +126,62 @@ class BayesConv_Normalq(nn.Module):
             lpw = self.prior.loglike(W) + self.prior.loglike(b)
             return output, lqw, lpw
 
+class BayesConv1D_Normalq(nn.Module):
+    """Convolutional Layer where weights are sampled from a fully factorised Normal with learnable parameters. The likelihood
+        of the weight samples under the prior and the approximate posterior are returned with each forward pass in order
+        to estimate the KL term in the ELBO.
+        """
+    def __init__(self, n_in_channels, n_out_channels, kernel_size, prior_class, stride=1,
+                 padding=0, dilation=1):
+        super(BayesConv1D_Normalq, self).__init__()
+        self.n_in_channels = n_in_channels
+        self.n_out_channels = n_out_channels
+        self.kernel_size = kernel_size
+        self.stride = stride
+        self.padding = padding
+        self.dilation = dilation
+        self.groups = 1
+        self.prior = prior_class
+
+        # Learnable parameters -> Initialisation is set empirically.
+        self.W_mu = nn.Parameter(torch.Tensor(n_out_channels, n_in_channels, self.kernel_size).uniform_(-0.1, 0.1))
+        self.W_p = nn.Parameter(torch.Tensor(n_out_channels, n_in_channels, self.kernel_size).uniform_(-3, -2))
+
+        self.b_mu = nn.Parameter(torch.Tensor(n_out_channels).uniform_(-0.1, 0.1))
+        self.b_p = nn.Parameter(torch.Tensor(n_out_channels).uniform_(-3, -2))
+
+        self.out = lambda input, kernel, bias: F.conv1d(input, kernel, bias, self.stride, self.padding,
+                                                       self.dilation, self.groups)
+
+        self.lpw = 0
+        self.lqw = 0
+
+    def forward(self, X, sample=False):
+
+        if not self.training and not sample:  # When training return MLE of w for quick validation
+            output = self.out_bias(X, self.W_mu, self.b_mu)
+            return output, 0, 0
+
+        else:
+
+            # Tensor.new()  Constructs a new tensor of the same data type as self tensor.
+            # the same random sample is used for every element in the minibatch
+            eps_W = Variable(self.W_mu.data.new(self.W_mu.size()).normal_())
+            eps_b = Variable(self.b_mu.data.new(self.b_mu.size()).normal_())
+
+            # sample parameters
+            std_w = 1e-6 + F.softplus(self.W_p, beta=1, threshold=20)
+            std_b = 1e-6 + F.softplus(self.b_p, beta=1, threshold=20)
+
+            W = self.W_mu + 1 * std_w * eps_W
+            b = self.b_mu + 1 * std_b * eps_b
+
+            output = self.out(X, W, b)
+
+            lqw = isotropic_gauss_loglike(W, self.W_mu, std_w) + isotropic_gauss_loglike(b, self.b_mu, std_b)
+            lpw = self.prior.loglike(W) + self.prior.loglike(b)
+            return output, lqw, lpw
+
 class bayes_linear_1L(nn.Module):
     """1 hidden layer Bayes By Backprop (VI) Network"""
     def __init__(self, input_dim, output_dim, n_hid, prior_instance):
@@ -301,6 +357,70 @@ class bayes_linear_4L(nn.Module):
         x = self.act(x)
         # -----------------
         x, lqw, lpw = self.bfc5(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+
+        return y, tlqw, tlpw
+
+    def sample_predict(self, x, Nsamples):
+        """Used for estimating the data's likelihood by approximately marginalising the weights with MC"""
+        # Just copies type from x, initializes new vector
+        predictions = x.data.new(Nsamples, x.shape[0], self.output_dim)
+        tlqw_vec = np.zeros(Nsamples)
+        tlpw_vec = np.zeros(Nsamples)
+
+        for i in range(Nsamples):
+            y, tlqw, tlpw = self.forward(x, sample=True)
+            predictions[i] = y
+            tlqw_vec[i] = tlqw
+            tlpw_vec[i] = tlpw
+
+        return predictions, tlqw_vec, tlpw_vec
+
+class bayes_2Conv1D1FC(nn.Module):
+    """2 Conv1D 1FC layer Bayes By Backprop (VI) Network"""
+    def __init__(self, inputs, outputs, n_hid, prior_instance):
+        super(bayes_2Conv1D1FC, self).__init__()
+
+        self.prior_instance = prior_instance
+
+        self.inputs = inputs
+        self.outputs = outputs
+
+        self.conv1d1 = BayesConv1D_Normalq(inputs, 256, 3, self.prior_instance)
+        self.conv1d2 = BayesConv1D_Normalq(256, 256, 3, self.prior_instance)
+        self.bfc1 = BayesLinear_Normalq(256 * 30, outputs, self.prior_instance)
+
+        # choose your non linearity
+        # self.act = nn.Tanh()
+        # self.act = nn.Sigmoid()
+        self.pool = nn.MaxPool1d(kernel_size=2, stride=1)
+        self.act = nn.ReLU(inplace=True)
+        # self.act = nn.ELU(inplace=True)
+        # self.act = nn.SELU(inplace=True)
+
+    def forward(self, x, sample=False):
+        tlqw = 0
+        tlpw = 0
+
+        #         # -----------------
+        x, lqw, lpw = self.conv1d1(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x = self.act(x)
+        x = self.pool(x)
+        # -----------------
+        x, lqw, lpw = self.conv1d2(x, sample)
+        tlqw = tlqw + lqw
+        tlpw = tlpw + lpw
+        # -----------------
+        x = self.act(x)
+        x = self.pool(x)
+        # -----------------
+        x = x.reshape(x.size(0), -1)
+
+        y, lqw, lpw = self.bfc1(x, sample)
         tlqw = tlqw + lqw
         tlpw = tlpw + lpw
 
@@ -719,4 +839,121 @@ class BBP_Bayes_Net_BH(BaseNet):
 
         return loss.data, mse.data, mean.data, std.data
 
+class BBP_Bayes_Net_MCS(BaseNet):
+    """Full network wrapper for Bayes By Backprop nets with methods for training, prediction and weight prunning"""
+    eps = 1e-6
+
+    def __init__(self, lr=1e-3, inputs=1, cuda=True, outputs=1, batch_size=128, Nbatches=0,
+                 nhid=1200, prior_instance=laplace_prior(mu=0, b=0.1), momentum=0):
+        super(BBP_Bayes_Net_MCS, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.inputs = inputs
+        self.outputs = outputs
+        self.batch_size = batch_size
+        self.Nbatches = Nbatches
+        self.prior_instance = prior_instance
+        self.nhid = nhid
+        self.momentum = momentum
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
+
+        self.test = False
+
+    def create_net(self):
+        torch.manual_seed(42)
+        if self.cuda:
+            torch.cuda.manual_seed(42)
+
+        self.model = bayes_2Conv1D1FC(inputs=self.inputs, outputs=self.outputs,
+                                      n_hid=self.nhid, prior_instance=self.prior_instance)
+
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
+
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
+
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
+
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
+
+    def fit(self, x, y, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        self.optimizer.zero_grad()
+
+        outputs = torch.zeros(x.shape[0], self.outputs, samples).cuda()
+        if samples == 1:
+            out, tlqw, tlpw = self.model(x)
+            mlpdw = F.mse_loss(out, y, reduction='sum')
+            Edkl = (tlqw - tlpw) / self.Nbatches
+            outputs[:,:,0] = out
+
+
+        elif samples > 1:
+            mlpdw_cum = 0
+            Edkl_cum = 0
+
+            for i in range(samples):
+                out, tlqw, tlpw = self.model(x, sample=True)
+                mlpdw_i = F.mse_loss(out, y, reduction='sum')
+                Edkl_i = (tlqw - tlpw) / self.Nbatches
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                Edkl_cum = Edkl_cum + Edkl_i
+
+                outputs[:, :, i] = out
+
+            mlpdw = mlpdw_cum / samples
+            Edkl = Edkl_cum / samples
+
+        mean = torch.mean(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        loss = Edkl + mlpdw
+        loss.backward()
+        self.optimizer.step()
+
+        # out: (batch_size, out_channels, out_caps_dims)
+        # pred = out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
+        # err = pred.ne(y.data).sum()
+
+        return Edkl.data, mlpdw.data, mse.data
+
+    def eval(self, x, y, train=False, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        loss = 0
+
+        outputs = torch.zeros(x.shape[0], self.outputs, samples).cuda()
+
+        if samples == 1:
+            out, _, _ = self.model(x)
+            loss = F.mse_loss(out, y, reduction='sum')
+            outputs[:,:,0] = out
+
+        elif samples > 1:
+            mlpdw_cum = 0
+
+            for i in range(samples):
+                out, _, _ = self.model(x, sample=True)
+                mlpdw_i = F.mse_loss(out, y, reduction='sum')
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                outputs[:,:,i] = out
+
+            mlpdw = mlpdw_cum / samples
+            loss = mlpdw
+
+        mean = torch.mean(outputs, dim=2)
+        std = torch.std(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data, mean.data, std.data
 

@@ -1,8 +1,14 @@
 from src.priors import *
 from src.base_net import *
-
+import torch
 import torch.nn.functional as F
 import torch.nn as nn
+from torch.autograd import grad
+
+def gaussian_nll(mean_values, var_values, y):
+    y_diff = y - mean_values
+    return 0.5 * torch.mean(torch.log(var_values)) + 0.5 * torch.mean(
+        torch.div(torch.pow(y_diff, 2), var_values)) + 0.5 * np.log(2 * np.pi)
 
 class Linear_1L(nn.Module):
     def __init__(self, input_dim, output_dim, n_hid):
@@ -270,68 +276,104 @@ class Bootstrap_Net_BH(BaseNet):
 
         return loss.data, out.data
 
-    def get_weight_samples(self):
-        weight_vec = []
 
-        state_dict = self.model.state_dict()
+class Deep_Ensemble_Net_BH(BaseNet):
+    eps = 1e-6
 
-        for key in state_dict.keys():
+    def __init__(self, lr=1e-3,input_dim=13, cuda=True, output_dim=1, batch_size=128, weight_decay=0, n_hid=1200, momentum=0):
+        super(Deep_Ensemble_Net_BH, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.input_dim = input_dim
+        self.weight_decay = weight_decay
+        self.output_dim = output_dim
+        self.n_hid = n_hid
+        self.batch_size = batch_size
+        self.momentum = momentum
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
 
-            if 'weight' in key:
-                weight_mtx = state_dict[key].cpu().data
-                for weight in weight_mtx.view(-1):
-                    weight_vec.append(weight)
+        self.test = False
 
-        return np.array(weight_vec)
+    def create_net(self):
+        #         torch.manual_seed(42)
+        #         if self.cuda:
+        #             torch.cuda.manual_seed(42)
 
-    def sample_eval(self, x, y, weight_set_samples, logits=True, train=False):
+        self.model = Linear_1L(input_dim=self.input_dim, output_dim=self.output_dim * 2,
+                               n_hid=self.n_hid)
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
 
-        Nsamples = len(weight_set_samples)
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
 
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum,
+                                         weight_decay=self.weight_decay)
 
-        out = x.data.new(Nsamples, x.shape[0], self.classes)
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
 
-        # iterate over all saved weight configuration samples
-        for idx, weight_dict in enumerate(weight_set_samples):
-            if idx == Nsamples:
-                break
-            self.model.load_state_dict(weight_dict)
-            out[idx] = self.model(x)
+    # def fgsm_attack(model, loss, images, labels, eps):
+    #     images = images.to(device)
+    #     labels = labels.to(device)
+    #     images.requires_grad = True
+    #     outputs = model(images)
+    #     model.zero_grad()                       ## 与optimizer.zero_grad()等效
+    #     cost = loss(outputs, labels).to(device)
+    #     cost.backward()
+    #
+    #     attack_images = images + eps * images.grad.sign()
+    #     attack_images = torch.clamp(attack_images, 0, 1)
+    #
+    #     return attack_images
+    def fit(self, x, y, epsilon, alpha):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+        x.requires_grad=True
 
-        if logits:
-            mean_out = out.mean(dim=0, keepdim=False)
-            loss = F.cross_entropy(mean_out, y, reduction='sum')
-            probs = F.softmax(mean_out, dim=1).data.cpu()
+        self.optimizer.zero_grad()
 
-        else:
-            mean_out = F.softmax(out, dim=2).mean(dim=0, keepdim=False)
-            probs = mean_out.data.cpu()
+        out = self.model(x)
+        mu = out[:,0]
+        sig = out[:,1]
+        sig_pos = torch.log(1 + torch.exp(sig)) + 1e-06
 
-            log_mean_probs_out = torch.log(mean_out)
-            loss = F.nll_loss(log_mean_probs_out, y, reduction='sum')
+        # loss = F.mse_loss(out, y, reduction='sum')
+        nll_loss = gaussian_nll(mu, sig_pos, y)
 
-        pred = mean_out.data.max(dim=1, keepdim=False)[1]  # get the index of the max log-probability
-        err = pred.ne(y.data).sum()
+        nll_grad = grad(alpha * nll_loss, x, retain_graph=True, create_graph=True)[0]
+        x_at = x + epsilon * torch.sign(nll_grad)
 
-        return loss.data, err, probs
+        out_at = self.model(x_at)
+        mu_at = out_at[:, 0]
+        sig_at = out_at[:, 1]
+        sig_pos_at = torch.log(1 + torch.exp(sig_at)) + 1e-06
 
-    def all_sample_eval(self, x, y, weight_set_samples):
+        nll_loss_at = gaussian_nll(mu_at, sig_pos_at, y)
 
-        Nsamples = len(weight_set_samples)
+        loss = alpha * nll_loss + (1 - alpha) * nll_loss_at
+        loss.backward()
+        
+        self.optimizer.step()
 
-        x, y = to_variable(var=(x, y.long()), cuda=self.cuda)
+        return loss.data
 
-        out = x.data.new(Nsamples, x.shape[0], self.classes)
+    def eval(self, x, y, train=False):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
 
-        # iterate over all saved weight configuration samples
-        for idx, weight_dict in enumerate(weight_set_samples):
-            if idx == Nsamples:
-                break
-            self.model.load_state_dict(weight_dict)
-            out[idx] = self.model(x)
+        out = self.model(x)
+        mu = out[:, 0]
+        sig = out[:, 1]
+        sig_pos = torch.log(1 + torch.exp(sig)) + 1e-06
 
-        prob_out = F.softmax(out, dim=2)
-        prob_out = prob_out.data
+        mse = F.mse_loss(mu, y, reduction='sum')
+        loss = gaussian_nll(mu, sig_pos, y)
 
-        return prob_out
+        return loss.data, mse.data, out.data
+
