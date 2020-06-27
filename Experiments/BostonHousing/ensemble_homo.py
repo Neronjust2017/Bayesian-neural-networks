@@ -79,6 +79,7 @@ if __name__ == '__main__':
 
                             ###
                             output = np.zeros((X_test.shape[0], outputs, n_net))
+                            noises = np.zeros(n_net)
                             ###
                             for iii in range(n_net):
                                 print('Net ' + str(iii))
@@ -102,7 +103,7 @@ if __name__ == '__main__':
 
                                 # net dims
                                 cprint('c', '\nNetwork:')
-                                net = Bootstrap_Net_BH(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
+                                net = Bootstrap_Net_BH_homo(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
                                                     batch_size=batch_size,
                                                     weight_decay=weight_decay, n_hid=50)
 
@@ -144,8 +145,8 @@ if __name__ == '__main__':
                                     net.epoch = i
 
                                     # ---- print
-                                    print("it %d/%d, Jtr_pred = %f, rmse = %f, " %
-                                          (i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
+                                    print("it %d/%d, Jtr_pred = %f, rmse = %f, noise = %f" %
+                                          (i, nb_epochs, pred_cost_train[i], rmse_train[i], net.model.log_noise.exp().cpu().data.numpy()), end="")
                                     cprint('r', '   time: %f seconds\n' % (toc - tic))
 
                                     # ---- dev
@@ -154,7 +155,6 @@ if __name__ == '__main__':
                                         nb_samples = 0
                                         for j, (x, y) in enumerate(valloader):
                                             cost, out = net.eval(x, y)
-
                                             cost_dev[i] += cost
                                             rmse_dev[i] += cost
                                             nb_samples += len(x)
@@ -198,6 +198,7 @@ if __name__ == '__main__':
 
                                 cost_test = cost_test.cpu().data.numpy()
                                 rmse_test = rmse_test.cpu().data.numpy()
+                                noises[iii] = net.model.output_dim.exp().cpu().data.numpy()
 
                                 best_cost_dev = np.min(cost_dev)
                                 best_cost_train = np.min(pred_cost_train)
@@ -216,12 +217,17 @@ if __name__ == '__main__':
                                 # Storing testing result
                                 store_results(results_test_split, ['Net_%d: rmse %f  \n' % (iii,rmse_test * y_stds)])
 
+
                             means = np.mean(output, axis=2)
                             stds = np.std(output, axis=2)
-
+                            noise = np.mean(noises **2)
                             # compute PICP MPIW
-                            y_L = means - 2 * stds
-                            y_U = means + 2 * stds
+                            total_unc_1 = (noise ** 2 + stds ** 2) ** 0.5
+                            total_unc_2 = (noise ** 2 + (2 * stds) ** 2) ** 0.5
+                            total_unc_3 = (noise ** 2 + (3 * stds) ** 2) ** 0.5
+
+                            y_L = means - total_unc_2
+                            y_U = means + total_unc_2
                             u = np.maximum(0, np.sign(y_U - y_test))
                             l = np.maximum(0, np.sign(y_test - y_L))
                             PICP = np.mean(np.multiply(u, l))
@@ -244,7 +250,7 @@ if __name__ == '__main__':
                             mkdir(results_dir_split)
 
                             ## plot figures
-                            plot_uncertainty(means, stds, y_test, results_dir_split)
+                            plot_uncertainty_noise(means, noises, [total_unc_1, total_unc_2, total_unc_3], y_test, results_dir_split)
 
                         rmses = np.array(rmses)
                         picps = np.array(picps)

@@ -114,6 +114,103 @@ class vd_linear_1L(nn.Module):
 
         return predictions, tkl_vec
 
+class vd_linear_1L_homo(nn.Module):
+    """1 hidden layer Variational Dropout Network"""
+    def __init__(self, input_dim, output_dim, alpha_shape=(1, 1), bias=True, n_hid=50, init_log_noise=0):
+        super(vd_linear_1L_homo, self).__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.alpha_shape = alpha_shape
+        self.bias = bias
+
+        self.bfc1 = VdLinear(input_dim, n_hid, self.alpha_shape, self.bias)
+        self.bfc2 = VdLinear(n_hid, output_dim, self.alpha_shape, self.bias)
+
+        # choose your non linearity
+        # self.act = nn.Tanh()
+        # self.act = nn.Sigmoid()
+        self.act = nn.ReLU(inplace=True)
+        # self.act = nn.ELU(inplace=True)
+        # self.act = nn.SELU(inplace=True)
+        self.log_noise = nn.Parameter(torch.cuda.FloatTensor([init_log_noise]))
+
+    def forward(self, x, sample=False):
+        tkl = 0.0
+
+        x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        # -----------------
+        x, kl = self.bfc1(x, sample)
+        tkl = tkl + kl
+        # -----------------
+        x = self.act(x)
+        # -----------------
+        y, kl = self.bfc2(x, sample)
+        tkl = tkl + kl
+
+        return y, tkl
+
+    def sample_predict(self, x, Nsamples):
+        """Used for estimating the data's likelihood by approximately marginalising the weights with MC"""
+        # Just copies type from x, initializes new vector
+        predictions = x.data.new(Nsamples, x.shape[0], self.output_dim)
+        tkl_vec = np.zeros(Nsamples)
+
+        for i in range(Nsamples):
+            y, tkl = self.forward(x, sample=True)
+            predictions[i] = y
+            tkl_vec[i] = tkl
+
+        return predictions, tkl_vec
+
+class vd_linear_1L_hetero(nn.Module):
+    """1 hidden layer Variational Dropout Network"""
+    def __init__(self, input_dim, output_dim, alpha_shape=(1, 1), bias=True, n_hid=50):
+        super(vd_linear_1L_hetero, self).__init__()
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.alpha_shape = alpha_shape
+        self.bias = bias
+
+        self.bfc1 = VdLinear(input_dim, n_hid, self.alpha_shape, self.bias)
+        self.bfc2 = VdLinear(n_hid, 2 * output_dim, self.alpha_shape, self.bias)
+
+        # choose your non linearity
+        # self.act = nn.Tanh()
+        # self.act = nn.Sigmoid()
+        self.act = nn.ReLU(inplace=True)
+        # self.act = nn.ELU(inplace=True)
+        # self.act = nn.SELU(inplace=True)
+
+    def forward(self, x, sample=False):
+        tkl = 0.0
+
+        x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        # -----------------
+        x, kl = self.bfc1(x, sample)
+        tkl = tkl + kl
+        # -----------------
+        x = self.act(x)
+        # -----------------
+        y, kl = self.bfc2(x, sample)
+        tkl = tkl + kl
+
+        return y, tkl
+
+    def sample_predict(self, x, Nsamples):
+        """Used for estimating the data's likelihood by approximately marginalising the weights with MC"""
+        # Just copies type from x, initializes new vector
+        predictions = x.data.new(Nsamples, x.shape[0], self.output_dim)
+        tkl_vec = np.zeros(Nsamples)
+
+        for i in range(Nsamples):
+            y, tkl = self.forward(x, sample=True)
+            predictions[i] = y
+            tkl_vec[i] = tkl
+
+        return predictions, tkl_vec
+
 class VD_Bayes_Net(BaseNet):
 
     eps = 1e-6
@@ -246,7 +343,6 @@ class VD_Bayes_Net(BaseNet):
 
         return prob_out
 
-
 class VD_Bayes_Net_BH(BaseNet):
 
     eps = 1e-6
@@ -361,4 +457,246 @@ class VD_Bayes_Net_BH(BaseNet):
 
         return loss.data, mse.data, mean.data, std.data
 
+class VD_Bayes_Net_BH_homo(BaseNet):
 
+    eps = 1e-6
+
+    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, Nbatches=0,
+                 nhid=1200, alpha_shape=(1, 1), bias=True, momentum=0):
+        super(VD_Bayes_Net_BH_homo, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.batch_size = batch_size
+        self.Nbatches = Nbatches
+        self.nhid = nhid
+        self.alpha_shape = alpha_shape
+        self.bias = bias
+        self.momentum = momentum
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
+
+        self.test = False
+
+    def create_net(self):
+        torch.manual_seed(42)
+        if self.cuda:
+            torch.cuda.manual_seed(42)
+
+        self.model = vd_linear_1L_homo(input_dim=self.input_dim,output_dim=self.output_dim,
+                                  n_hid=self.nhid, alpha_shape=self.alpha_shape, bias=self.bias)
+
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
+
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
+
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
+
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
+
+    def log_gaussian_loss(self, output, target, sigma, no_dim):
+        exponent = -0.5 * (target - output) ** 2 / sigma ** 2
+        log_coeff = -no_dim * torch.log(sigma)
+
+        return - (log_coeff + exponent).sum()
+
+    def fit(self, x, y, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        self.optimizer.zero_grad()
+
+        outputs = torch.zeros(x.shape[0], self.output_dim, samples).cuda()
+        if samples == 1:
+            out, tkl = self.model(x)
+            mlpdw = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+            Edkl = tkl / self.Nbatches
+            outputs[:,:,0] = out
+
+        elif samples > 1:
+            mlpdw_cum = 0
+            Edkl_cum = 0
+
+            for i in range(samples):
+                out, tkl = self.model(x, sample=True)
+                mlpdw_i = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+                Edkl_i = tkl / self.Nbatches
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                Edkl_cum = Edkl_cum + Edkl_i
+
+                outputs[:, :, i] = out
+
+            mlpdw = mlpdw_cum / samples
+            Edkl = Edkl_cum / samples
+
+        mean = torch.mean(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        loss = Edkl + mlpdw
+        loss.backward()
+        self.optimizer.step()
+
+        return Edkl.data, mlpdw.data, mse.data
+
+    def eval(self, x, y, train=False, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        loss = 0
+
+        outputs = torch.zeros(x.shape[0], self.output_dim, samples).cuda()
+
+        if samples == 1:
+            out, _= self.model(x)
+            loss = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+            outputs[:,:,0] = out
+
+        elif samples > 1:
+            mlpdw_cum = 0
+
+            for i in range(samples):
+                out, _= self.model(x, sample=True)
+                mlpdw_i = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                outputs[:,:,i] = out
+
+            mlpdw = mlpdw_cum / samples
+            loss = mlpdw
+
+        mean = torch.mean(outputs, dim=2)
+        std = torch.std(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data, mean.data, std.data
+
+class VD_Bayes_Net_BH_hetero(BaseNet):
+
+    eps = 1e-6
+
+    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, Nbatches=0,
+                 nhid=1200, alpha_shape=(1, 1), bias=True, momentum=0):
+        super(VD_Bayes_Net_BH_hetero, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.batch_size = batch_size
+        self.Nbatches = Nbatches
+        self.nhid = nhid
+        self.alpha_shape = alpha_shape
+        self.bias = bias
+        self.momentum = momentum
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
+
+        self.test = False
+
+    def create_net(self):
+        torch.manual_seed(42)
+        if self.cuda:
+            torch.cuda.manual_seed(42)
+
+        self.model = vd_linear_1L_hetero(input_dim=self.input_dim,output_dim=self.output_dim,
+                                  n_hid=self.nhid, alpha_shape=self.alpha_shape, bias=self.bias)
+
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
+
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
+
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum)
+
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
+
+    def log_gaussian_loss(self, output, target, sigma, no_dim, sum_reduce=True):
+        exponent = -0.5 * (target - output) ** 2 / sigma ** 2
+        log_coeff = -no_dim * torch.log(sigma) - 0.5 * no_dim * np.log(2 * np.pi)
+
+        if sum_reduce:
+            return -(log_coeff + exponent).sum()
+        else:
+            return -(log_coeff + exponent)
+
+    def fit(self, x, y, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        self.optimizer.zero_grad()
+
+        outputs = torch.zeros(x.shape[0], self.output_dim * 2, samples).cuda()
+        if samples == 1:
+            out, tkl = self.model(x)
+            mlpdw = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+            Edkl = tkl / self.Nbatches
+            outputs[:,:,0] = out
+
+        elif samples > 1:
+            mlpdw_cum = 0
+            Edkl_cum = 0
+
+            for i in range(samples):
+                out, tkl = self.model(x, sample=True)
+                mlpdw_i = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+                Edkl_i = tkl / self.Nbatches
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                Edkl_cum = Edkl_cum + Edkl_i
+
+                outputs[:, :, i] = out
+
+            mlpdw = mlpdw_cum / samples
+            Edkl = Edkl_cum / samples
+
+        mean = torch.mean(outputs[:, :1, :], dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        loss = Edkl + mlpdw
+        loss.backward()
+        self.optimizer.step()
+
+        return Edkl.data, mlpdw.data, mse.data
+
+    def eval(self, x, y, train=False, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        loss = 0
+
+        outputs = torch.zeros(x.shape[0], self.output_dim * 2, samples).cuda()
+
+        if samples == 1:
+            out, _= self.model(x)
+            loss = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+            outputs[:,:,0] = out
+
+        elif samples > 1:
+            mlpdw_cum = 0
+
+            for i in range(samples):
+                out, _= self.model(x, sample=True)
+                mlpdw_i = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+                mlpdw_cum = mlpdw_cum + mlpdw_i
+                outputs[:,:,i] = out
+
+            mlpdw = mlpdw_cum / samples
+            loss = mlpdw
+
+        mean = torch.mean(outputs[:, :1, :], dim=2)
+        std = torch.std(outputs[:, :1, :], dim=2)
+        noise = torch.mean(outputs[:, 1:, :]**2, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data, mean.data, std.data, noise.data

@@ -221,7 +221,8 @@ def plot_rmse(nb_epochs, nb_its_dev, rmse_train, rmse_dev, results_dir_split):
     fig2, ax2 = plt.subplots()
     ax2.set_ylabel('% rmse')
     ax2.semilogy(range(0, nb_epochs, nb_its_dev), 100 * rmse_dev[::nb_its_dev], 'b-')
-    ax2.semilogy(100 * rmse_train, 'r--')
+    if rmse_train is not None:
+        ax2.semilogy(100 * rmse_train, 'r--')
     plt.xlabel('epoch')
     plt.grid(b=True, which='major', color='k', linestyle='-')
     plt.grid(b=True, which='minor', color='k', linestyle='--')
@@ -234,6 +235,41 @@ def plot_rmse(nb_epochs, nb_its_dev, rmse_train, rmse_dev, results_dir_split):
         item.set_fontsize(textsize)
         item.set_weight('normal')
     plt.savefig(results_dir_split + '/rmse.png', bbox_extra_artists=(lgd,), box_inches='tight')
+
+def plot_uncertainty_noise(means, noise, total_unc, y_test, results_dir_split):
+
+    textsize = 15
+    marker = 5
+
+    means = means.reshape((means.shape[0],))
+    noise = noise.reshape((noise.shape[0],))
+    total_unc_1 = total_unc[0].reshape((total_unc[0].shape[0],))
+    total_unc_2 = total_unc[1].reshape((total_unc[1].shape[0],))
+    total_unc_3 = total_unc[2].reshape((total_unc[2].shape[0],))
+
+    c = ['#1f77b4', '#ff7f0e']
+    ind = np.arange(0, len(y_test))
+    plt.figure()
+    fig, ax1 = plt.subplots()
+    plt.scatter(ind, y_test, color='black', alpha=0.5)
+    ax1.plot(ind, means, 'r')
+    plt.fill_between(ind, means - total_unc_3, means + total_unc_3,
+                     alpha=0.25, label='99.7% Confidence')
+    plt.fill_between(ind, means - total_unc_2, means + total_unc_2,
+                     alpha=0.25, label='95% Confidence')
+    plt.fill_between(ind, means - total_unc_1, means + total_unc_1,
+                     alpha=0.25, label='68% Confidence')
+    plt.fill_between(ind, means - noise, means + noise,
+                     alpha=0.25, label='Noise')
+    ax1.set_ylabel('prediction')
+    plt.xlabel('test points')
+    plt.grid(b=True, which='major', color='k', linestyle='-')
+    plt.grid(b=True, which='minor', color='k', linestyle='--')
+    lgd = plt.legend(['prediction mean'], markerscale=marker, prop={'size': textsize, 'weight': 'normal'})
+    ax = plt.gca()
+    plt.title('Uncertainty')
+
+    plt.savefig(results_dir_split + '/uncertainty.png', bbox_extra_artists=(lgd,), bbox_inches='tight')
 
 def plot_uncertainty(means, stds, y_test, results_dir_split):
 

@@ -45,7 +45,7 @@ if __name__ == '__main__':
     n_splits = 15
     
     # Paths
-    base_dir = './results/mc_dropout_results'
+    base_dir = './results_hetero/mc_dropout_results'
 
     # Grid search
     results = {}
@@ -90,7 +90,7 @@ if __name__ == '__main__':
                                 reg = lengthscale ** 2 * (1 - pdrop) / (2. * N * tau)
 
                                 cprint('c', '\nNetwork:')
-                                net = MC_drop_net_BH(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
+                                net = MC_drop_net_BH_hetero(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
                                                     batch_size=batch_size, weight_decay=reg,n_hid=50, momentum=momentum, pdrop=pdrop)
 
                                 # ---- train
@@ -127,7 +127,7 @@ if __name__ == '__main__':
                                     toc = time.time()
                                     net.epoch = i
                                     # ---- print
-                                    print("it %d/%d, Jtr_pred = %f, rmse = %f, " % (
+                                    print("it %d/%d, Jtr_pred = %f, rmse = %f" % (
                                         i, nb_epochs, pred_cost_train[i], rmse_train[i]), end="")
                                     cprint('r', '   time: %f seconds\n' % (toc - tic))
 
@@ -137,7 +137,7 @@ if __name__ == '__main__':
                                         nb_samples = 0
 
                                         for j, (x, y) in enumerate(valloader):
-                                            cost, mse, _, _ = net.eval(x, y, samples=T)
+                                            cost, mse, _, _, _ = net.eval(x, y, samples=T)
                                             cost_dev[i] += cost
                                             rmse_dev[i] += mse
                                             nb_samples += len(x)
@@ -168,25 +168,33 @@ if __name__ == '__main__':
 
                                 means = np.zeros((X_test.shape[0], outputs))
                                 stds = np.zeros((X_test.shape[0], outputs))
+                                noises = np.zeros((X_test.shape[0], outputs))
 
                                 # ---- test
                                 start = 0
                                 for j, (x, y) in enumerate(testloader):
                                     end = len(x) + start
-                                    cost, mse, mean, std = net.eval(x, y, samples=T)
+                                    cost, mse, mean, std, noise = net.eval(x, y, samples=T)
                                     if use_cuda:
                                         mean = mean.cpu()
                                         std = std.cpu()
+                                        noise = std.cpu()
                                     means[start:end, :] = mean
                                     stds[start:end, :] = std
+                                    noises[start:end, :] = noise
                                     start = end
 
                                     cost_test += cost
                                     rmse_test += mse
                                     nb_samples += len(x)
 
-                                y_L = means - 2 * stds
-                                y_U = means + 2 * stds
+                                # compute PICP MPIW
+                                total_unc_1 = (noises ** 2 + stds ** 2) ** 0.5
+                                total_unc_2 = (noises ** 2 + (2 * stds) ** 2) ** 0.5
+                                total_unc_3 = (noises ** 2 + (3 * stds) ** 2) ** 0.5
+
+                                y_L = means - total_unc_2
+                                y_U = means + total_unc_2
                                 u = np.maximum(0, np.sign(y_U - y_test))
                                 l = np.maximum(0, np.sign(y_test - y_L))
                                 PICP = np.mean(np.multiply(u, l))
@@ -236,7 +244,7 @@ if __name__ == '__main__':
                                 ## plot figures
                                 plot_pred_cost(pred_cost_train, nb_epochs, nb_its_dev, cost_dev, results_dir_split)
                                 plot_rmse(nb_epochs, nb_its_dev, rmse_train, rmse_dev, results_dir_split)
-                                plot_uncertainty(means, stds, y_test, results_dir_split)
+                                plot_uncertainty_noise(means, noises, [total_unc_1, total_unc_2, total_unc_3], y_test, results_dir_split)
 
                             rmses = np.array(rmses)
                             picps = np.array(picps)

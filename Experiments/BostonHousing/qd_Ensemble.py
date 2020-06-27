@@ -91,7 +91,7 @@ if __name__ == '__main__':
     is_norm_plot = True
 
     # Paths
-    base_dir = './qd_ensemble_results_new'
+    base_dir = './results/qd_ensemble_results_new'
     
     # Grid search
     results = {}

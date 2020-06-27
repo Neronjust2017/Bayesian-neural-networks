@@ -41,10 +41,10 @@ if __name__ == '__main__':
     batch_size = 100
     nb_epochs = 40
     log_interval = 1
-    n_splits = 15
+    n_splits = 1
 
     # Paths
-    base_dir = './results/bbb_results'
+    base_dir = './results_hetero/bbb_results'
 
     # Grid search
     results = {}
@@ -87,14 +87,14 @@ if __name__ == '__main__':
 
                             use_cuda = torch.cuda.is_available()
 
-                            trainloader, valloader, testloader = get_dataloader(trainset, valset, testset, use_cuda,batch_size)
+                            trainloader, valloader, testloader = get_dataloader(trainset, valset, testset, use_cuda,batch_size, worker=False)
 
                             results_val = base_dir + '/results_val_split_' + str(split) + '.txt'
                             results_test = base_dir + '/results_test_split_' + str(split) + '.txt'
 
                             # net dims
                             cprint('c', '\nNetwork:')
-                            net = BBP_Bayes_Net_BH(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
+                            net = BBP_Bayes_Net_BH_hetero(lr=lr, input_dim=inputs, output_dim=outputs, cuda=use_cuda,
                                                 batch_size=batch_size,
                                                 Nbatches=(NTrainPoints / batch_size), nhid=50,
                                                 prior_instance=prior_instance)
@@ -141,7 +141,7 @@ if __name__ == '__main__':
                                 toc = time.time()
                                 net.epoch = i
                                 # ---- print
-                                print("it %d/%d, Jtr_KL = %f, Jtr_pred = %f, rmse = %f, " % (
+                                print("it %d/%d, Jtr_KL = %f, Jtr_pred = %f, rmse = %f" % (
                                     i, nb_epochs, kl_cost_train[i], pred_cost_train[i], rmse_train[i]), end="")
                                 cprint('r', '   time: %f seconds\n' % (toc - tic))
 
@@ -152,7 +152,7 @@ if __name__ == '__main__':
                                     T = 1000
 
                                     for j, (x, y) in enumerate(valloader):
-                                        cost, mse, _, _ = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                        cost, mse, _, _, _ = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
                                         cost_dev[i] += cost
                                         rmse_dev[i] += mse
                                         nb_samples += len(x)
@@ -184,16 +184,19 @@ if __name__ == '__main__':
 
                             means = np.zeros((X_test.shape[0], outputs))
                             stds = np.zeros((X_test.shape[0], outputs))
+                            noises = np.zeros((X_test.shape[0], outputs))
 
                             start = 0
                             for j, (x, y) in enumerate(testloader):
                                 end = len(x) + start
-                                cost, mse, mean, std = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
+                                cost, mse, mean, std, noise = net.eval(x, y, samples=T)  # This takes the expected weights to save time, not proper inference
                                 if use_cuda:
                                     mean = mean.cpu()
                                     std = std.cpu()
+                                    noise = std.cpu()
                                 means[start:end,:] = mean
                                 stds[start:end,:] = std
+                                noises[start:end,:] = noise
                                 start = end
 
                                 cost_test += cost
@@ -201,8 +204,12 @@ if __name__ == '__main__':
                                 nb_samples += len(x)
 
                             # compute PICP MPIW
-                            y_L = means - 2 * stds
-                            y_U = means + 2 * stds
+                            total_unc_1 = (noises ** 2 + stds ** 2) ** 0.5
+                            total_unc_2 = (noises ** 2 + (2 * stds) **2) ** 0.5
+                            total_unc_3 = (noises ** 2 + (3 * stds) ** 2) ** 0.5
+
+                            y_L = means - total_unc_2
+                            y_U = means + total_unc_2
                             u = np.maximum(0, np.sign(y_U - y_test))
                             l = np.maximum(0, np.sign(y_test - y_L))
                             PICP = np.mean(np.multiply(u, l))
@@ -257,7 +264,7 @@ if __name__ == '__main__':
                             plot_pred_cost(pred_cost_train, nb_epochs, nb_its_dev, cost_dev, results_dir_split)
                             plot_kl_cost(kl_cost_train, results_dir_split)
                             plot_rmse(nb_epochs, nb_its_dev, rmse_train, rmse_dev, results_dir_split)
-                            plot_uncertainty(means, stds, y_test, results_dir_split)
+                            plot_uncertainty_noise(means, noises, [total_unc_1, total_unc_2, total_unc_3], y_test, results_dir_split)
 
                         rmses = np.array(rmses)
                         picps = np.array(picps)
@@ -270,7 +277,7 @@ if __name__ == '__main__':
                         s = 'Prior: ' + str(prior) + ' Prior_sigs: ' + str(prior_sig) + \
                         ' Lr: ' + str(lr) + ' Momentum: ' + str(momentum) + ' N_sample: ' + str(n_sample)
 
-                        results[s] = [np.mean(rmses),np.std(rmses), np.std(rmses)/math.sqrt(n_splits), np.mean(picps), np.mean(mpiws)]
+                        results[s] = [np.mean(rmses), np.std(rmses), np.std(rmses)/math.sqrt(n_splits), np.mean(picps), np.mean(mpiws)]
 
     # sort all the results
     store_all_results(results, base_dir)

@@ -43,6 +43,75 @@ class Linear_1L(nn.Module):
 
         return y
 
+class Linear_1L_homo(nn.Module):
+    def __init__(self, input_dim, output_dim, n_hid, pdrop, init_log_noise=0):
+        super(Linear_1L_homo, self).__init__()
+
+        self.pdrop = pdrop
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        self.fc1 = nn.Linear(input_dim, n_hid)
+        self.fc2 = nn.Linear(n_hid, output_dim)
+
+        # choose your non linearity
+        # self.act = nn.Tanh()
+        # self.act = nn.Sigmoid()
+        self.act = nn.ReLU(inplace=True)
+        # self.act = nn.ELU(inplace=True)
+        # self.act = nn.SELU(inplace=True)
+        self.log_noise = nn.Parameter(torch.cuda.FloatTensor([init_log_noise]))
+
+    def forward(self, x, sample=True):
+        mask = self.training or sample  # if training or sampling, mc dropout will apply random binary mask
+        # Otherwise, for regular test set evaluation, we can just scale activations
+
+        x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
+        # -----------------
+        x = self.fc1(x)
+        x = self.act(x)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
+        # -----------------
+        y = self.fc2(x)
+
+        return y
+
+class Linear_1L_hetero(nn.Module):
+    def __init__(self, input_dim, output_dim, n_hid, pdrop):
+        super(Linear_1L_hetero, self).__init__()
+
+        self.pdrop = pdrop
+
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+
+        self.fc1 = nn.Linear(input_dim, n_hid)
+        self.fc2 = nn.Linear(n_hid, 2 * output_dim)
+
+        # choose your non linearity
+        # self.act = nn.Tanh()
+        # self.act = nn.Sigmoid()
+        self.act = nn.ReLU(inplace=True)
+        # self.act = nn.ELU(inplace=True)
+        # self.act = nn.SELU(inplace=True)
+
+    def forward(self, x, sample=True):
+        mask = self.training or sample  # if training or sampling, mc dropout will apply random binary mask
+        # Otherwise, for regular test set evaluation, we can just scale activations
+
+        x = x.view(-1, self.input_dim)  # view(batch_size, input_dim)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
+        # -----------------
+        x = self.fc1(x)
+        x = self.act(x)
+        x = MC_dropout(x, p=self.pdrop, mask=mask)
+        # -----------------
+        y = self.fc2(x)
+
+        return y
+
 class Linear_2L(nn.Module):
     def __init__(self, input_dim, output_dim, n_hid):
         super(Linear_2L, self).__init__()
@@ -343,3 +412,190 @@ class MC_drop_net_BH(BaseNet):
                     weight_vec.append(weight)
 
         return np.array(weight_vec)
+
+class MC_drop_net_BH_homo(BaseNet):
+    eps = 1e-6
+
+    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, weight_decay=0, n_hid=1200, momentum=0, pdrop=0.5):
+        super(MC_drop_net_BH_homo, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.input_dim = input_dim
+        self.weight_decay = weight_decay
+        self.output_dim = output_dim
+        self.n_hid = n_hid
+        self.batch_size = batch_size
+        self.momentum = momentum
+        self.pdrop = pdrop
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
+
+        self.test = False
+
+    def create_net(self):
+        torch.manual_seed(42)
+        if self.cuda:
+            torch.cuda.manual_seed(42)
+
+        self.model = Linear_1L_homo(input_dim=self.input_dim, output_dim=self.output_dim,
+                               n_hid=self.n_hid, pdrop=self.pdrop)
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
+
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
+
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum,
+                                         weight_decay=self.weight_decay)
+
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
+
+    def log_gaussian_loss(self, output, target, sigma, no_dim):
+        exponent = -0.5 * (target - output) ** 2 / sigma ** 2
+        log_coeff = -no_dim * torch.log(sigma)
+
+        return - (log_coeff + exponent).sum()
+
+    def fit(self, x, y):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        self.optimizer.zero_grad()
+
+        out = self.model(x)
+        loss = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.data
+
+    def eval(self, x, y, train=False, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        loss = 0
+
+        outputs = torch.zeros(x.shape[0], self.output_dim, samples).cuda()
+
+        if samples == 1:
+            out = self.model(x)
+            loss = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+            outputs[:, :, 0] = out
+
+        elif samples > 1:
+
+            for i in range(samples):
+                out = self.model(x, sample=True)
+                loss_i = self.log_gaussian_loss(out, y, self.model.log_noise.exp(), self.model.output_dim)
+                loss = loss + loss_i
+                outputs[:, :, i] = out
+
+            loss /= samples
+
+        mean = torch.mean(outputs, dim=2)
+        std = torch.std(outputs, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data, mean.data, std.data
+
+class MC_drop_net_BH_hetero(BaseNet):
+    eps = 1e-6
+
+    def __init__(self, lr=1e-3, input_dim=13, cuda=True, output_dim=1, batch_size=128, weight_decay=0, n_hid=1200, momentum=0, pdrop=0.5):
+        super(MC_drop_net_BH_hetero, self).__init__()
+        cprint('y', ' Creating Net!! ')
+        self.lr = lr
+        self.schedule = None  # [] #[50,200,400,600]
+        self.cuda = cuda
+        self.input_dim = input_dim
+        self.weight_decay = weight_decay
+        self.output_dim = output_dim
+        self.n_hid = n_hid
+        self.batch_size = batch_size
+        self.momentum = momentum
+        self.pdrop = pdrop
+        self.create_net()
+        self.create_opt()
+        self.epoch = 0
+
+        self.test = False
+
+    def create_net(self):
+        torch.manual_seed(42)
+        if self.cuda:
+            torch.cuda.manual_seed(42)
+
+        self.model = Linear_1L_hetero(input_dim=self.input_dim, output_dim=self.output_dim,
+                               n_hid=self.n_hid, pdrop=self.pdrop)
+        if self.cuda:
+            self.model.cuda()
+        #             cudnn.benchmark = True
+
+        print('    Total params: %.2fM' % (self.get_nb_parameters() / 1000000.0))
+
+    def create_opt(self):
+        #         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, betas=(0.9, 0.999), eps=1e-08,
+        #                                           weight_decay=0)
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=self.momentum,
+                                         weight_decay=self.weight_decay)
+
+    #         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, momentum=0.9)
+    #         self.sched = torch.optim.lr_scheduler.StepLR(self.optimizer, step_size=1, gamma=10, last_epoch=-1)
+
+    def log_gaussian_loss(self, output, target, sigma, no_dim, sum_reduce=True):
+        exponent = -0.5 * (target - output) ** 2 / sigma ** 2
+        log_coeff = -no_dim * torch.log(sigma) - 0.5 * no_dim * np.log(2 * np.pi)
+
+        if sum_reduce:
+            return -(log_coeff + exponent).sum()
+        else:
+            return -(log_coeff + exponent)
+
+    def fit(self, x, y):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        self.optimizer.zero_grad()
+
+        out = self.model(x)
+        loss = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+
+        loss.backward()
+        self.optimizer.step()
+
+        return loss.data
+
+    def eval(self, x, y, train=False, samples=1):
+        x, y = to_variable(var=(x, y), cuda=self.cuda)
+
+        loss = 0
+
+        outputs = torch.zeros(x.shape[0], self.output_dim * 2, samples).cuda()
+
+        if samples == 1:
+            out = self.model(x)
+            loss = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+            outputs[:, :, 0] = out
+
+        elif samples > 1:
+
+            for i in range(samples):
+                out = self.model(x, sample=True)
+                loss_i = self.log_gaussian_loss(out[:, :1], y, out[:, 1:].exp(), self.model.output_dim)
+                loss = loss + loss_i
+                outputs[:, :, i] = out
+
+            loss /= samples
+
+        mean = torch.mean(outputs[:, :1, :], dim=2)
+        std = torch.std(outputs[:, :1, :], dim=2)
+        noise = torch.mean(outputs[:, 1:, :] ** 2, dim=2)
+        mse = F.mse_loss(mean, y, reduction='sum')
+
+        return loss.data, mse.data, mean.data, std.data, noise.data
+
