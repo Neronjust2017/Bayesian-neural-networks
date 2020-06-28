@@ -1,0 +1,9 @@
+Prior_GMM_prior_Prior_sigs_10_Lr_0.0001_Momentum_0.9_N_sample_10 :: rmse 6.661721 PICP 0.960784 MPIW 1.932690
+Prior_GMM_prior_Prior_sigs_10_Lr_0.001_Momentum_0_N_sample_100 :: rmse 4.659827 PICP 0.921569 MPIW 1.409368
+Prior_GMM_prior_Prior_sigs_10_Lr_0.001_Momentum_0_N_sample_1000 :: rmse 4.526130 PICP 0.921569 MPIW 1.375061
+Prior_GMM_prior_Prior_sigs_10_Lr_0.001_Momentum_0.9_N_sample_100 :: rmse 3.935066 PICP 0.901961 MPIW 1.106694
+Prior_GMM_prior_Prior_sigs_10_Lr_0.001_Momentum_0.9_N_sample_1000 :: rmse 3.908253 PICP 0.882353 MPIW 1.254833
+Prior_GMM_prior_Prior_sigs_1_Lr_0.001_Momentum_0_N_sample_100 :: rmse 4.754158 PICP 0.921569 MPIW 1.419096
+Prior_GMM_prior_Prior_sigs_1_Lr_0.001_Momentum_0_N_sample_1000 :: rmse 4.543590 PICP 0.921569 MPIW 1.375824
+Prior_GMM_prior_Prior_sigs_1_Lr_0.001_Momentum_0.9_N_sample_100 :: rmse 3.914004 PICP 0.901961 MPIW 1.105363
+Prior_GMM_prior_Prior_sigs_1_Lr_0.001_Momentum_0.9_N_sample_1000 :: rmse 3.689294 PICP 0.882353 MPIW 1.139661

@@ -31,11 +31,17 @@ if __name__ == '__main__':
     outputs = 1
 
     # Hyper-parameters
-    priors = ['GMM_prior','Laplace_prior', 'Gaussian_prior']
-    prior_sigs = [10, 1, 0.1, 0.05]
-    lrs = [1e-4, 1e-3]
+    # priors = ['GMM_prior','Laplace_prior', 'Gaussian_prior']
+    # prior_sigs = [10, 1, 0.1, 0.05]
+    # lrs = [1e-4, 1e-3]
+    # momentums = [0, 0.9]
+    # n_samples = [10, 100]
+
+    priors = ['GMM_prior']
+    prior_sigs = [10, 1]
+    lrs = [1e-3]
     momentums = [0, 0.9]
-    n_samples = [10, 100]
+    n_samples = [100, 1000]
 
     NTrainPoints = 364
     batch_size = 100

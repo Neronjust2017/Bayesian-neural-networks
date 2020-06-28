@@ -1,0 +1,3 @@
+rmse 4.921623 PICP 0.607843 MPIW 0.945449
+Overall: 
+ rmses 4.921623 +- 0.000000 (stddev) +- 0.000000 (std error) PICP 0.607843 MPIW 0.945449

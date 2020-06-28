@@ -1,0 +1,16 @@
+Pdrop: 0.01 Tau: 0.15 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.101777 +- 1.229130 (stddev) +- 0.317360 (std error) PICP 0.244444 MPIW 0.303579
+Pdrop: 0.01 Tau: 0.1 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.176648 +- 1.225294 (stddev) +- 0.316370 (std error) PICP 0.236601 MPIW 0.291979
+Pdrop: 0.01 Tau: 0.1 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.199654 +- 1.086143 (stddev) +- 0.280441 (std error) PICP 0.230065 MPIW 0.289378
+Pdrop: 0.01 Tau: 0.15 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.201471 +- 1.089822 (stddev) +- 0.281391 (std error) PICP 0.230065 MPIW 0.289121
+Pdrop: 0.005 Tau: 0.15 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.129602 +- 1.087410 (stddev) +- 0.280768 (std error) PICP 0.186928 MPIW 0.209916
+Pdrop: 0.005 Tau: 0.1 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 8.826350 +- 13.993436 (stddev) +- 3.613090 (std error) PICP 0.184314 MPIW 0.246670
+Pdrop: 0.005 Tau: 0.15 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.086496 +- 1.073965 (stddev) +- 0.277297 (std error) PICP 0.183007 MPIW 0.201483
+Pdrop: 0.005 Tau: 0.1 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.078700 +- 1.089098 (stddev) +- 0.281204 (std error) PICP 0.175163 MPIW 0.206100
+Pdrop: 0.2 Tau: 0.15 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 6.015726 +- 2.078360 (stddev) +- 0.536630 (std error) PICP 0.805229 MPIW 1.416390
+Pdrop: 0.2 Tau: 0.15 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 6.024457 +- 2.293085 (stddev) +- 0.592072 (std error) PICP 0.800000 MPIW 1.373323
+Pdrop: 0.2 Tau: 0.1 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.956606 +- 2.325706 (stddev) +- 0.600495 (std error) PICP 0.796078 MPIW 1.379188
+Pdrop: 0.2 Tau: 0.1 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.427024 +- 1.328106 (stddev) +- 0.342915 (std error) PICP 0.783007 MPIW 1.344781
+Pdrop: 0.1 Tau: 0.15 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.050691 +- 1.094432 (stddev) +- 0.282581 (std error) PICP 0.658824 MPIW 0.928281
+Pdrop: 0.1 Tau: 0.15 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.374234 +- 1.016117 (stddev) +- 0.262360 (std error) PICP 0.653595 MPIW 0.936067
+Pdrop: 0.1 Tau: 0.1 Lengthscale: 1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.272482 +- 1.203787 (stddev) +- 0.310816 (std error) PICP 0.644444 MPIW 0.921613
+Pdrop: 0.1 Tau: 0.1 Lengthscale: 0.1 Lr: 0.001 Momentum: 0.9 T: 1000 RMSE: 5.079993 +- 1.044194 (stddev) +- 0.269610 (std error) PICP 0.640523 MPIW 0.916751

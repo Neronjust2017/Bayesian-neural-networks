@@ -1,0 +1,8 @@
+N_net_5_Subsample_0.9_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0_Weight_decay_1e-06 :: nll 0.637682 rmse 3.598057 PICP 1.000000 MPIW 2.584344
+N_net_5_Subsample_0.9_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0_Weight_decay_0.0001 :: nll 0.672531 rmse 3.845608 PICP 1.000000 MPIW 2.664510
+N_net_5_Subsample_0.9_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0.9_Weight_decay_1e-06 :: nll 0.021885 rmse 2.693565 PICP 0.980392 MPIW 1.138688
+N_net_5_Subsample_0.9_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0.9_Weight_decay_0.0001 :: nll 0.111231 rmse 2.545440 PICP 0.980392 MPIW 1.188734
+N_net_5_Subsample_1_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0_Weight_decay_1e-06 :: nll 0.600223 rmse 3.329211 PICP 1.000000 MPIW 2.506734
+N_net_5_Subsample_1_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0_Weight_decay_0.0001 :: nll 0.616413 rmse 3.581144 PICP 1.000000 MPIW 2.500061
+N_net_5_Subsample_1_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0.9_Weight_decay_1e-06 :: nll 0.124042 rmse 2.530221 PICP 0.980392 MPIW 1.202570
+N_net_5_Subsample_1_Epsilon_0.01_Alpha_1_Lr_0.001_Momentum_0.9_Weight_decay_0.0001 :: nll 0.040150 rmse 2.422333 PICP 0.980392 MPIW 1.170750

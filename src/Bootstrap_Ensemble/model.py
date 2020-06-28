@@ -560,7 +560,6 @@ class Deep_Ensemble_Net_BH(BaseNet):
         loss = alpha * nll_loss + (1 - alpha) * nll_loss_at
 
         loss.backward()
-        
         self.optimizer.step()
 
         return loss.data

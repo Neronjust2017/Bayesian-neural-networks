@@ -1,0 +1,9 @@
+Prior: GMM_prior Prior_sigs: 10 Lr: 0.0001 Momentum: 0.9 N_sample: 10 RMSE: 4.921623 +- 0.000000 (stddev) +- 0.000000 (std error) PICP 0.607843 MPIW 0.945449
+Prior: GMM_prior Prior_sigs: 10 Lr: 0.001 Momentum: 0 N_sample: 100 RMSE: 3.612594 +- 0.973375 (stddev) +- 0.251324 (std error) PICP 0.954248 MPIW 1.395822
+Prior: GMM_prior Prior_sigs: 1 Lr: 0.001 Momentum: 0 N_sample: 100 RMSE: 3.629407 +- 0.997150 (stddev) +- 0.257463 (std error) PICP 0.951634 MPIW 1.394846
+Prior: GMM_prior Prior_sigs: 10 Lr: 0.001 Momentum: 0 N_sample: 1000 RMSE: 3.652827 +- 0.963887 (stddev) +- 0.248875 (std error) PICP 0.949020 MPIW 1.382709
+Prior: GMM_prior Prior_sigs: 1 Lr: 0.001 Momentum: 0 N_sample: 1000 RMSE: 3.660661 +- 0.969599 (stddev) +- 0.250350 (std error) PICP 0.947712 MPIW 1.383114
+Prior: GMM_prior Prior_sigs: 1 Lr: 0.001 Momentum: 0.9 N_sample: 100 RMSE: 3.439061 +- 0.933770 (stddev) +- 0.241098 (std error) PICP 0.939869 MPIW 1.262191
+Prior: GMM_prior Prior_sigs: 10 Lr: 0.001 Momentum: 0.9 N_sample: 100 RMSE: 3.314060 +- 0.900573 (stddev) +- 0.232527 (std error) PICP 0.938562 MPIW 1.219966
+Prior: GMM_prior Prior_sigs: 10 Lr: 0.001 Momentum: 0.9 N_sample: 1000 RMSE: 3.390169 +- 0.946452 (stddev) +- 0.244373 (std error) PICP 0.934641 MPIW 1.272082
+Prior: GMM_prior Prior_sigs: 1 Lr: 0.001 Momentum: 0.9 N_sample: 1000 RMSE: 3.398516 +- 0.769594 (stddev) +- 0.198708 (std error) PICP 0.929412 MPIW 1.182018

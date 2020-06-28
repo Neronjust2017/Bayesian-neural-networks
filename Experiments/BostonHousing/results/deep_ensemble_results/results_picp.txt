@@ -1,0 +1,8 @@
+N_net: 5 Subsample: 0.9_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0 Weight_decay: 1e-06 RMSE: 3.140280 +- 0.355101 (stddev) +- 0.205018 (std error) nll 0.590169 PICP 1.000000 MPIW 1.220274
+N_net: 5 Subsample: 0.9_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0 Weight_decay: 0.0001 RMSE: 3.197499 +- 0.503240 (stddev) +- 0.290546 (std error) nll 0.590968 PICP 1.000000 MPIW 1.318225
+N_net: 5 Subsample: 1_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0 Weight_decay: 1e-06 RMSE: 3.006565 +- 0.255238 (stddev) +- 0.147362 (std error) nll 0.562288 PICP 1.000000 MPIW 1.274241
+N_net: 5 Subsample: 1_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0 Weight_decay: 0.0001 RMSE: 3.176607 +- 0.319874 (stddev) +- 0.184679 (std error) nll 0.582655 PICP 1.000000 MPIW 1.332379
+N_net: 5 Subsample: 0.9_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0.9 Weight_decay: 1e-06 RMSE: 2.525850 +- 0.249188 (stddev) +- 0.143869 (std error) nll 0.098066 PICP 0.980392 MPIW 2.464369
+N_net: 5 Subsample: 0.9_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0.9 Weight_decay: 0.0001 RMSE: 2.554066 +- 0.268284 (stddev) +- 0.154894 (std error) nll 0.153610 PICP 0.967320 MPIW 2.529745
+N_net: 5 Subsample: 1_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0.9 Weight_decay: 1e-06 RMSE: 2.538429 +- 0.315280 (stddev) +- 0.182027 (std error) nll 0.138708 PICP 0.967320 MPIW 2.486611
+N_net: 5 Subsample: 1_Epsilon_0.01_Alpha_1 Lr: 0.001 Momentum: 0.9 Weight_decay: 0.0001 RMSE: 2.471698 +- 0.242696 (stddev) +- 0.140120 (std error) nll 0.099801 PICP 0.967320 MPIW 2.527321

@@ -1,0 +1,5 @@
+Net_0: rmse 3.686799  
+Net_1: rmse 3.782497  
+Net_2: rmse 4.142391  
+Net_3: rmse 3.870716  
+Net_4: rmse 4.020265  
