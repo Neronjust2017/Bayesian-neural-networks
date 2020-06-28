@@ -31,10 +31,16 @@ if __name__ == '__main__':
     outputs = 1
 
     # Hyper-parameters
-    pdrops = [0.005, 0.01, 0.05, 0.1]
-    taus = [0.1, 0.15, 0.2]
-    lengthscales = [1e-2, 1e-1, 1, 10]
-    lrs = [1e-3, 1e-4]
+    # pdrops = [0.005, 0.01, 0.05, 0.1]
+    # taus = [0.1, 0.15, 0.2]
+    # lengthscales = [1e-2, 1e-1, 1, 10]
+    # lrs = [1e-3, 1e-4]
+    # momentums = [0.9]
+    # Ts = [1000]
+    pdrops = [0.2, 0.1]
+    taus = [0.1, 0.15]
+    lengthscales = [1e-1, 1]
+    lrs = [1e-3]
     momentums = [0.9]
     Ts = [1000]
 

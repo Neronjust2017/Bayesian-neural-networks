@@ -233,7 +233,7 @@ if __name__ == '__main__':
                             PICP = np.mean(np.multiply(u, l))
                             MPIW = np.mean(y_U - y_L)
 
-                            rmse_test_split = F.mse_loss(torch.tensor(means), torch.tensor(y_test), reduction='mean')
+                            rmse_test_split = F.mse_loss(torch.tensor(means), torch.tensor(y_test), reduction='mean') **0.5
                             rmse_test_split = rmse_test_split.cpu().data.numpy()
 
                             # Storing testing results
