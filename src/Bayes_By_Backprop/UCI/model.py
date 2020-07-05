@@ -22,7 +22,6 @@ def sample_weights(W_mu, b_mu, W_p, b_p):
 
     return W, b
 
-
 class BayesLinear_Normalq(nn.Module):
     """Linear Layer where weights are sampled from a fully factorised Normal with learnable parameters. The likelihood
      of the weight samples under the prior and the approximate posterior are returned with each forward pass in order
@@ -72,8 +71,6 @@ class BayesLinear_Normalq(nn.Module):
             lqw = isotropic_gauss_loglike(W, self.W_mu, std_w) + isotropic_gauss_loglike(b, self.b_mu, std_b)
             lpw = self.prior.loglike(W) + self.prior.loglike(b)
             return output, lqw, lpw
-
-
 
 class bayes_linear_2L(nn.Module):
     """2 hidden layer Bayes By Backprop (VI) Network"""

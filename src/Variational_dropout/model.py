@@ -696,7 +696,7 @@ class VD_Bayes_Net_BH_hetero(BaseNet):
 
         mean = torch.mean(outputs[:, :1, :], dim=2)
         std = torch.std(outputs[:, :1, :], dim=2)
-        noise = torch.mean(outputs[:, 1:, :]**2, dim=2)
+        noise = torch.mean(outputs[:, 1:, :].exp()**2, dim=2)
         mse = F.mse_loss(mean, y, reduction='sum')
 
         return loss.data, mse.data, mean.data, std.data, noise.data
